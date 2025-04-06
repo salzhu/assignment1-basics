@@ -2,44 +2,181 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
+from einops import rearrange, einsum
+
+class Linear(nn.Module):
+    def __init__(self, in_features, out_features, device=None, dtype=None):
+        super().__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+        self.device = device
+        self.dtype = dtype
+        
+        self.weight = torch.nn.Parameter(torch.nn.init.trunc_normal_(
+            torch.empty((in_features, out_features), device=device, dtype=dtype), 
+            std = 2/(in_features + out_features), 
+            a = -3*2/(in_features + out_features), 
+            b = 3*2/(in_features + out_features)
+        ))
+
+    def set(self, weight):
+        self.weight = torch.nn.Parameter(weight.T.to(device=self.device, dtype=self.dtype))
+
+    def get(self):
+        return self.weight.T
+        
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # print(self.in_features, self.out_features)
+        # print(self.weights.data.shape)
+        # print(x.shape)
+        # print('-------------------------------------------')
+        return einsum(self.weight.data, x, "in_features out_features, ... in_features -> ... out_features")
+
+class Embedding(nn.Module):
+    def __init__(self, num_embeddings, embedding_dim, device=None, dtype=None):
+        super().__init__()
+        self.num_embeddings = num_embeddings
+        self.embedding_dim = embedding_dim
+        self.device = device
+        self.dtype = dtype
+
+        self.embed = torch.nn.Parameter(torch.zeros(num_embeddings, embedding_dim, device=device, dtype=dtype))
+        
+    def set(self, weights):
+        self.embed = torch.nn.Parameter(weights.to(device=self.device, dtype=self.dtype))
+
+    def get(self):
+        return self.embed
+    
+    def forward(self, token_ids: torch.Tensor) -> torch.Tensor:
+        # print(self.embed[0].tolist())
+        # print('-------------------------------------------')
+        # print([self.embed[token_id].detach() for token_id in token_ids])
+        return torch.Tensor([self.embed[token_id].tolist() for token_id in token_ids])
+        return 
 
 class RMSNorm(nn.Module):
-    def __init__(self, d_model, eps, weights):
+    def __init__(self, d_model: int, eps: float = 1e-5, device=None, dtype=None):
         super().__init__()
         self.eps = eps
         self.d_model = d_model
-        self.weights = weights
+        self.device = device
+        self.dtype = dtype
+        self.weights = torch.zeros(d_model, device=device, dtype=dtype)
 
-    def forward(self, x):
-        rms = torch.linalg.vector_norm(x, dim=-1)**2 / self.d_model + self.eps 
-        rms = torch.sqrt(rms)
-        x = torch.movedim(x, -1, 0)
-        normed = x / rms
-        return torch.movedim(normed, 0, -1) * self.weights
+    def set(self, weights):
+        self.weights = weights.to(device=self.device, dtype=self.dtype)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+
+        in_dtype = x.dtype
+        x = x.to(torch.float32)
+
+        rms = torch.sqrt(torch.linalg.vector_norm(x, dim=-1)**2 / self.d_model + self.eps)
+        # print(rms)
+        # print(rms.shape, x.shape)
+        # print(self.weights / rms)
+
+        result = einsum(self.weights, x / torch.unsqueeze(rms,-1), "d_model, batch_size sequence_length d_model -> batch_size sequence_length d_model")
     
-class GELU(nn.Module):
-    def forward(self, x):
-        return x * (1 + torch.erf(x/np.sqrt(2))) / 2
+        return result.to(in_dtype)
     
-class FFN(nn.Module):
-    def __init__(self, weights1, weights2):
+def silu(x):
+    return x * torch.sigmoid(x)
+
+class SwiGLU(nn.Module):
+    def __init__(self, d_model, d_ff, device=None, dtype=None):
         super().__init__()
-        self.weights1 = weights1
-        self.weights2 = weights2 
+        self.w1 = Linear(d_model, d_ff, device=device, dtype=dtype)
+        self.w2 = Linear(d_model, d_ff, device=device, dtype=dtype)
+        self.w3 = Linear(d_model, d_ff, device=device, dtype=dtype)
+
+    def set(self, w1, w2, w3):
+        self.w1 = w1
+        self.w2 = w2
+        self.w3 = w3
 
     def forward(self, x):
-        w1 = self.weights1
-        w2 = self.weights2
-
-        x = torch.unsqueeze(x, -1)
-        x = w1 @ x
-
-        gelu = GELU()
-        x = gelu(x)
-
-        x = torch.squeeze(w2 @ x)
-        return x
+        print(self.w1.weight.shape, x.shape)
+        result = self.w1.forward(x)
+        result = silu(result)
+        result = result * self.w3.forward(x)
+        result = self.w2.forward(result)
+        return result
     
+class ROPE(nn.Module):
+    def __init__(self, theta: float, d_k: int, max_seq_len: int, device=None):
+        super().__init__()
+        self.register_buffer('cos_sin_matrix', torch.zeros(max_seq_len, d_k // 2, 2), persistent=False)
+        for i in range(max_seq_len):
+            for k in range(d_k // 2):
+                # print(torch.tensor(i / (theta ** (2 * k / d_k))))
+                # print(torch.cos(torch.Tensor(i / (theta ** (2 * k / d_k)))))
+                self.cos_sin_matrix[i,k,0] = torch.cos(torch.tensor(i / (theta ** (2 * k / d_k))))
+                self.cos_sin_matrix[i,k,1] = torch.sin(torch.tensor(i / (theta ** (2 * k / d_k))))
+        self.cos_sin_matrix.to(device=device)
+        self.d_k = d_k
+
+    def forward(self, x: torch.Tensor, token_positions: torch.Tensor) -> torch.Tensor:
+        #print(token_positions)
+        # print(x.shape)
+        
+        # reshape into d_k/2 2
+        x_temp = rearrange(x, "... (d_k_split split2) -> ... d_k_split split2", d_k_split=self.d_k // 2, split2=2)
+        # result = torch.zeros(x_temp.shape, device=x.device)
+
+        result = torch.stack((
+            self.cos_sin_matrix[token_positions,:,0] * x_temp[..., 0] - self.cos_sin_matrix[token_positions,:,1] * x_temp[..., 1], 
+            self.cos_sin_matrix[token_positions,:,1] * x_temp[..., 0] + self.cos_sin_matrix[token_positions,:,0] * x_temp[..., 1]
+        ), dim=-1)
+        # print(result.shape)
+        result = result.view(x.shape)
+
+        return result
+        for i in token_positions:
+            print(i)
+            #print(x_temp.shape)
+            #print(self.cos_sin_matrix.shape)
+            #print(self.cos_sin_matrix[i,:,0].shape)
+            new_append = torch.stack((
+                self.cos_sin_matrix[i,:,0] * x_temp[..., 0] - self.cos_sin_matrix[i,:,1] * x_temp[..., 1], 
+                self.cos_sin_matrix[i,:,1] * x_temp[..., 0] + self.cos_sin_matrix[i,:,0] * x_temp[..., 1]
+            ),dim=-1)
+            print(new_append.shape)
+            result.append(torch.Tensor(new_append))
+
+        # print(result)
+        print(x.shape)
+        result = torch.cat(result, dim=0)
+        print(result.shape)
+
+        result = torch.Tensor(result)
+        result = torch.view(result, x.shape)
+
+        return result
+            
+
+        # self.cos_sin_matrix[..., 0] * x[..., 0] - self.cos_sin_matrix[..., 1] * x[..., 1]
+        # self.cos_sin_matrix[..., 1] * x[..., 0] + self.cos_sin_matrix[..., 0] * x[..., 1]
+        # # x_temp = reshape(x, "... seq_len d_k -> seq_len d_k // 2 2")  ')
+        # x_temp = rearrange(x, "... seq_len d_k -> ... d_k seq_len")
+        # token_positions = torch.flatten(token_positions)
+        # for i in range(len(token_positions)):
+        #     # building R^i 
+        #     R_i = torch.zeros(self.d_k, self.d_k)
+        #     for k in range(self.d_k // 2):
+        #         R_i[2 * k][2 * k] = self.cos_sin_matrix[i][k][0]
+        #         R_i[2 * k + 1][2 * k] = self.cos_sin_matrix[i][k][1]
+        #         R_i[2 * k][2 * k + 1] = -self.cos_sin_matrix[i][k][1]
+        #         R_i[2 * k + 1][2 * k + 1] = self.cos_sin_matrix[i][k][0]
+            
+        # print(self.cos_sin_matrix.shape, token_positions.shape)
+        # print(x.shape)
+        # x = rearrange(x, 'batch_size seq_len d_model -> batch_size seq_len (d_model // 2) 2')
+        # x = einsum(self.cos_sin_matrix[token_positions], x, "seq_len d_k_2 2, batch_size seq_len d_k_2 2 -> batch_size seq_len d_k_2 2")
+        # x = rearrange(x, 'batch_size seq_len d_k_2 2 -> batch_size seq_len d_model')
+        return x
+
 def softmax(v, dim):
 
     v = torch.movedim(v, dim, 0)
@@ -50,78 +187,112 @@ def softmax(v, dim):
     v /= denom
     return torch.movedim(v, 0, dim)
 
-def scaled_dot_product_attention(K, Q, V, mask):
-    n = Q.shape[-2]
-    m = K.shape[-2]
-    d_k = K.shape[-1]
-    d_v = V.shape[-1]
+def scaled_dot_product_attention(Q, K, V, mask):
 
-    # K = K.view(-1, m, d_k)
-    # Q = Q.view(-1, n, d_k)
-    # V = V.view(-1, m, d_v)
+    result = einsum(Q, K, "batch_size ... seq_len_1 d_k, batch_size ... seq_len_2 d_k -> batch_size ... seq_len_1 seq_len_2")
+    result /= np.sqrt(K.shape[-1])
 
-    attn = torch.bmm(Q, K.permute(0, 2, 1)) 
-    attn = attn / np.sqrt(d_k)
+    # print(torch.inf * (~mask).long())
+    # print(result)
 
-    attn = softmax(attn, -1)
+    if mask is not None:
+        # print(mask.shape)
+        # print(result.shape)
+        result[...,~mask] = -torch.inf
+        # result[~mask] = -torch.inf
 
-    mask = ~mask
-    
-    attn = attn * mask.to(torch.float32) 
+    # print(result)
 
-
-    attn = attn / attn.sum(dim=-1, keepdim=True)
-
-    attn = torch.bmm(attn, V)
-
-    return attn
+    result = softmax(result, dim=-1)
+    result = einsum(result, V, "batch_size ... seq_len_1 seq_len_2, batch_size ... seq_len_2 d_v -> batch_size ... seq_len_1 d_v")
+    return result
 
 
 class MultiheadSelfAttention(nn.Module):
-    def __init__(self, d_model, num_heads, attn_pdrop):
+    def __init__(self, d_model, num_heads, use_rope=True, device=None, dtype=None):
         super().__init__()
         self.d_model = d_model
         self.num_heads = num_heads
-        self.attn_pdrop = attn_pdrop
 
-    def forward(self, k, q, v, out_proj, x):
+        self.d_k = d_model // num_heads
+        self.d_v = d_model // num_heads 
+
+        # self.q_proj = torch.nn.Parameter(
+        #     torch.zeros((d_model, d_model), device=device, dtype=dtype))
+        # self.k_proj = torch.nn.Parameter(
+        #     torch.zeros((d_model, d_model), device=device, dtype=dtype))
+        # self.v_proj = torch.nn.Parameter(
+        #     torch.zeros((d_model, d_model), device=device, dtype=dtype))
+        # self.o_proj = torch.nn.Parameter(
+        #     torch.zeros((d_model, d_model), device=device, dtype=dtype))
+
+        self.q_proj = Linear(d_model, d_model, device=device, dtype=dtype)
+        self.k_proj = Linear(d_model, d_model, device=device, dtype=dtype)
+        self.v_proj = Linear(d_model, d_model, device=device, dtype=dtype)
+        self.o_proj = Linear(d_model, d_model, device=device, dtype=dtype)
+        # self.rope = ROPE(10000, self.d_k, 2048)
+
+    def forward(self, x):
 
         mask = torch.triu(torch.ones(x.shape[1], x.shape[1]), diagonal=1).to(torch.bool)
+        # mask = mask.repeat(x.shape[:-1])
+        mask = ~mask
+        print(mask)
 
-        multihead = scaled_dot_product_attention(x@(k.T), x@(q.T), x@(v.T), mask)
+        q_x = self.q_proj.forward(x)
+        k_x = self.k_proj.forward(x)
+        v_x = self.v_proj.forward(x)
 
-        multihead = multihead @ out_proj
+        # x_temp = rearrange(x, "... (d_model_split split) -> ... d_model_split split", d_model_split=self.num_heads, split=self.d_k)
+        # q_temp = rearrange(self.q_proj, "(d_model_split split) d_model -> d_model_split (split d_model)", d_model_split=self.d_k, split=self.num_heads)
 
-        return multihead
+        # have to move sequence length to second to last dim 
+
+        q_x = rearrange(q_x, "... (n_head d_k) -> ... n_head d_k", n_head=self.num_heads, d_k=self.d_k)
+        k_x = rearrange(k_x, "... (n_head d_k) -> ... n_head d_k", n_head=self.num_heads, d_k=self.d_k)
+        v_x = rearrange(v_x, "... (n_head d_k) -> ... n_head d_k", n_head=self.num_heads, d_k=self.d_v)
+
+        q_x = rearrange(q_x, "... seq_len n_head d_k -> ... n_head seq_len d_k")
+        k_x = rearrange(k_x, "... seq_len n_head d_k -> ... n_head seq_len d_k")
+        v_x = rearrange(v_x, "... seq_len n_head d_k -> ... n_head seq_len d_k")
+
+        # mask = torch.unsqueeze(mask, 0)
+
+        print(mask.shape)
+        print(q_x.shape)
+
+        # mask = torch.unsqueeze(torch.unsqueeze(mask, 0), 0).repeat(4,4,1,1)
+        print(mask.shape)
+
+        result = scaled_dot_product_attention(q_x, k_x, v_x, mask=mask)
+        print(result.shape)
+
+        result = rearrange(result, "... n_head seq_len d_k -> ... seq_len (n_head d_k)")
+        print(result.shape)
+
+        result = self.o_proj.forward(result)
+        
+        print(result)
+
+        return result
     
 
 class TransformerBlock(nn.Module):
-    def __init__(self, d_model, num_heads, d_ff, attn_pdrop, residual_pdrop, ln1, ln2, ffn1, ffn2, k_proj, q_proj, v_proj, out_proj):
+    def __init__(self, d_model, num_heads, d_ff, device=None, dtype=None):
         super().__init__()
         self.d_model = d_model
         self.num_heads = num_heads
         self.d_ff = d_ff
-        self.attn_pdrop = attn_pdrop
-        self.residual_pdrop = residual_pdrop
 
-        self.ln1 = ln1 
-        self.ln2 = ln2 
-        self.ffn1 = ffn1 
-        self.ffn2 = ffn2 
-        self.k_proj = k_proj 
-        self.q_proj = q_proj 
-        self.v_proj = v_proj
-        self.out_proj = out_proj
+        self.RMSNorm1 = RMSNorm(d_model, 1e-5, device=device, dtype=dtype)
+        self.RMSNorm2 = RMSNorm(d_model, 1e-5, device=device, dtype=dtype)
+        self.glu = SwiGLU(d_model, d_ff, device=device, dtype=dtype)
+        self.MHSA = MultiheadSelfAttention(d_model, num_heads, device=device, dtype=dtype)
 
     def forward(self, x):
 
-        RMSNorm1 = RMSNorm(self.d_model, 1e-5, self.ln1)
-        RMSNorm2 = RMSNorm(self.d_model, 1e-5, self.ln2)
-        FF = FFN(self.ffn1, self.ffn2)
-        MHSA = MultiheadSelfAttention(self.d_model, self.num_heads, self.attn_pdrop)
-
-        y = x + MHSA(self.k_proj, self.q_proj, self.v_proj, self.out_proj, RMSNorm1(x))
-        z = y + FF(RMSNorm2(x))
+        y = x + self.MHSA(self.k_proj, self.q_proj, self.v_proj, self.out_proj, self.RMSNorm1(x))
+        z = y + self.glu(self.RMSNorm2(x))
 
         return z
     

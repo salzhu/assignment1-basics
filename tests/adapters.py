@@ -9,7 +9,10 @@ import numpy.typing as npt
 import torch
 from torch import Tensor
 
-from cs336_basics.tokenizer import train_bpe, BPETokenizer
+from cs336_basics.tokenizer import train_bpe, BPETokenizer, train_bpe_new
+from cs336_basics.transformer import Linear, Embedding, RMSNorm, SwiGLU, silu, softmax, scaled_dot_product_attention, MultiheadSelfAttention, ROPE
+from cs336_basics.train import cross_entropy, learning_rate_schedule, gradient_clipping, data_loading
+from cs336_basics.optimizer import AdamW
 
 def run_linear(
     d_in: int,
@@ -29,6 +32,11 @@ def run_linear(
     Returns:
         Float[Tensor, "... d_out"]: The transformed output of your linear module.
     """
+
+    linear = Linear(d_in, d_out)
+    linear.set(weights)
+    # print(linear.weights)
+    return linear.forward(in_features)
 
     raise NotImplementedError
 
@@ -51,6 +59,9 @@ def run_embedding(
     Returns:
         Float[Tensor, "... d_model"]: Batch of embeddings returned by your Embedding layer.
     """
+    embed = Embedding(vocab_size, d_model)
+    embed.set(weights)
+    return embed.forward(token_ids)
 
     raise NotImplementedError
 
@@ -81,9 +92,11 @@ def run_swiglu(
     # If your state dict keys match, you can use `load_state_dict()`
     # swiglu.load_state_dict(weights)
     # You can also manually assign the weights
-    # swiglu.w1.weight.data = w1_weight
-    # swiglu.w2.weight.data = w2_weight
-    # swiglu.w3.weight.data = w3_weight
+    swiglu = SwiGLU(d_model, d_ff)
+    swiglu.w1.weight.data = w1_weight.T
+    swiglu.w2.weight.data = w2_weight.T
+    swiglu.w3.weight.data = w3_weight.T
+    return swiglu.forward(in_features)
     raise NotImplementedError
 
 
@@ -105,6 +118,7 @@ def run_scaled_dot_product_attention(
     Returns:
         Float[Tensor, " ... queries d_v"]: Output of SDPA
     """
+    return scaled_dot_product_attention(Q, K, V, mask)
     raise NotImplementedError
 
 
@@ -139,6 +153,13 @@ def run_multihead_self_attention(
         Float[Tensor, " ... sequence_length d_out"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
+    mhsa = MultiheadSelfAttention(d_model, num_heads, use_rope=False)
+    mhsa.q_proj.data = q_proj_weight
+    mhsa.k_proj.data = k_proj_weight
+    mhsa.v_proj.data = v_proj_weight
+    mhsa.o_proj.data = o_proj_weight
+
+    return mhsa.forward(in_features)
     raise NotImplementedError
 
 
@@ -201,6 +222,8 @@ def run_rope(
     Returns:
         Float[Tensor, " ... sequence_length d_k"]: Tensor with RoPEd input.
     """
+    rope = ROPE(theta, d_k, max_seq_len)
+    return rope(in_query_or_key, token_positions)
     raise NotImplementedError
 
 
@@ -274,6 +297,8 @@ def run_transformer_block(
         Float[Tensor, "batch sequence_length d_model"] Tensor with the output of
         running the Transformer block on the input features while using RoPE.
     """
+    block = TransformerBlock()
+    block.RMSNorm1
     raise NotImplementedError
 
 
@@ -288,7 +313,8 @@ def run_transformer_lm(
     weights: dict[str, Tensor],
     in_indices: Int[Tensor, " batch_size sequence_length"],
 ) -> Float[Tensor, " batch_size sequence_length vocab_size"]:
-    """Given the weights of a Transformer language model and input indices,
+    """
+    Given the weights of a Transformer language model and input indices,
     return the output of running a forward pass on the input indices.
 
     This function should use RoPE.
@@ -379,6 +405,9 @@ def run_rmsnorm(
         Float[Tensor,"... d_model"]: Tensor of with the same shape as `in_features` with the output of running
         RMSNorm of the `in_features`.
     """
+    norm = RMSNorm(d_model, eps)
+    norm.set(weights)
+    return norm.forward(in_features)
     raise NotImplementedError
 
 
@@ -393,6 +422,7 @@ def run_silu(in_features: Float[Tensor, " ..."]) -> Float[Tensor, " ..."]:
         Float[Tensor,"..."]: of with the same shape as `in_features` with the output of applying
         SiLU to each element.
     """
+    return silu(in_features)
     raise NotImplementedError
 
 
@@ -416,6 +446,7 @@ def run_get_batch(
         is the sampled input sequences, and the second tuple item is the corresponding
         language modeling labels.
     """
+    return data_loading(dataset, batch_size, context_length, device)
     raise NotImplementedError
 
 
@@ -432,6 +463,7 @@ def run_softmax(in_features: Float[Tensor, " ..."], dim: int) -> Float[Tensor, "
         Float[Tensor, "..."]: Tensor of with the same shape as `in_features` with the output of
         softmax normalizing the specified `dim`.
     """
+    return softmax(in_features, dim)
     raise NotImplementedError
 
 
@@ -448,6 +480,7 @@ def run_cross_entropy(inputs: Float[Tensor, " batch_size vocab_size"], targets: 
     Returns:
         Float[Tensor, ""]: The average cross-entropy loss across examples.
     """
+    return cross_entropy(inputs, targets)
     raise NotImplementedError
 
 
@@ -460,13 +493,15 @@ def run_gradient_clipping(parameters: Iterable[torch.nn.Parameter], max_l2_norm:
 
     The gradients of the parameters (parameter.grad) should be modified in-place.
     """
-    raise NotImplementedError
+    gradient_clipping(parameters, max_l2_norm)
+    # raise NotImplementedError
 
 
 def get_adamw_cls() -> type[torch.optim.Optimizer]:
     """
     Returns a torch.optim.Optimizer that implements AdamW.
     """
+    return AdamW
     raise NotImplementedError
 
 
@@ -495,6 +530,7 @@ def run_get_lr_cosine_schedule(
     Returns:
         Learning rate at the given iteration under the specified schedule.
     """
+    return learning_rate_schedule(it, max_learning_rate, min_learning_rate, warmup_iters, cosine_cycle_iters)
     raise NotImplementedError
 
 
@@ -588,4 +624,4 @@ def run_train_bpe(
                 representing that <token1> was merged with <token2>.
                 Merges are ordered by order of creation.
     """
-    return train_bpe(input_path, vocab_size, special_tokens)
+    return train_bpe_new(input_path, vocab_size, special_tokens)

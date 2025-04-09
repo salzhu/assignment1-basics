@@ -2,6 +2,23 @@
 
 All changes we make to the assignment code or PDF will be documented in this file.
 
+## [1.0.4] - 2025-04-08
+### Added
+- handout: add guidance on parallelizing pretokenization and provide starter code for chunking
+- handout: add guidance on removing special tokens before pretokenization (you should split on them!)
+
+### Changed
+- handout: clarify that .encode() should not perform merges across pre-tokens
+- handout: fix command for compiling model on MPS backend
+
+## [1.0.3] - 2025-04-07
+### Added
+- code: Test for removing special tokens when training BPE
+
+### Changed
+- handout: Fixed RoPE off-by-one error
+- code: Fix for Intel Macs, support 3.11 and PyTorch 2.2.2 when on MacOS x86_64
+
 ## [1.0.2] - 2025-04-03
 ### Added
 - code: Missing tests for Linear and Embedding
@@ -10,6 +27,7 @@ All changes we make to the assignment code or PDF will be documented in this fil
 - handout: Fix RMSNorm interface
 - handout: Add hints in RMSNorm and SwiGLU specifications to improve numerical stability
 - handout: Clarify the BPE stylized example uses naive pretokenization by splitting on whitespace; your implementations should still use the provided regex
+- handout: Fix docstring for RMSNorm
 
 ## [1.0.1] - 2025-04-02
 ### Changed

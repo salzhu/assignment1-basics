@@ -13,7 +13,7 @@ class Linear(nn.Module):
         self.dtype = dtype
         
         self.weight = torch.nn.Parameter(torch.nn.init.trunc_normal_(
-            torch.empty((in_features, out_features), device=device, dtype=dtype), 
+            torch.empty((out_features, in_features), device=device, dtype=dtype), 
             std = 2/(in_features + out_features), 
             a = -3*2/(in_features + out_features), 
             b = 3*2/(in_features + out_features)
@@ -30,7 +30,7 @@ class Linear(nn.Module):
         # print(self.weights.data.shape)
         # print(x.shape)
         # print('-------------------------------------------')
-        return einsum(self.weight.data, x, "in_features out_features, ... in_features -> ... out_features")
+        return einsum(self.weight.data.T, x, "in_features out_features, ... in_features -> ... out_features")
 
 class Embedding(nn.Module):
     def __init__(self, num_embeddings, embedding_dim, device=None, dtype=None):
@@ -40,19 +40,19 @@ class Embedding(nn.Module):
         self.device = device
         self.dtype = dtype
 
-        self.embed = torch.nn.Parameter(torch.zeros(num_embeddings, embedding_dim, device=device, dtype=dtype))
+        self.weight = torch.nn.Parameter(torch.zeros(num_embeddings, embedding_dim, device=device, dtype=dtype))
         
     def set(self, weights):
-        self.embed = torch.nn.Parameter(weights.to(device=self.device, dtype=self.dtype))
+        self.weight = torch.nn.Parameter(weights.to(device=self.device, dtype=self.dtype))
 
     def get(self):
-        return self.embed
+        return self.weight
     
     def forward(self, token_ids: torch.Tensor) -> torch.Tensor:
         # print(self.embed[0].tolist())
         # print('-------------------------------------------')
         # print([self.embed[token_id].detach() for token_id in token_ids])
-        return torch.Tensor([self.embed[token_id].tolist() for token_id in token_ids])
+        return torch.Tensor([self.weight[token_id].tolist() for token_id in token_ids])
         return 
 
 class RMSNorm(nn.Module):
@@ -62,10 +62,10 @@ class RMSNorm(nn.Module):
         self.d_model = d_model
         self.device = device
         self.dtype = dtype
-        self.weights = torch.zeros(d_model, device=device, dtype=dtype)
+        self.weight = torch.nn.Parameter(torch.zeros(d_model, device=device, dtype=dtype))
 
     def set(self, weights):
-        self.weights = weights.to(device=self.device, dtype=self.dtype)
+        self.weight = weights.to(device=self.device, dtype=self.dtype)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
 
@@ -77,7 +77,7 @@ class RMSNorm(nn.Module):
         # print(rms.shape, x.shape)
         # print(self.weights / rms)
 
-        result = einsum(self.weights, x / torch.unsqueeze(rms,-1), "d_model, batch_size sequence_length d_model -> batch_size sequence_length d_model")
+        result = einsum(self.weight.data, x / torch.unsqueeze(rms,-1), "d_model, batch_size sequence_length d_model -> batch_size sequence_length d_model")
     
         return result.to(in_dtype)
     
@@ -88,7 +88,7 @@ class SwiGLU(nn.Module):
     def __init__(self, d_model, d_ff, device=None, dtype=None):
         super().__init__()
         self.w1 = Linear(d_model, d_ff, device=device, dtype=dtype)
-        self.w2 = Linear(d_model, d_ff, device=device, dtype=dtype)
+        self.w2 = Linear(d_ff, d_model, device=device, dtype=dtype)
         self.w3 = Linear(d_model, d_ff, device=device, dtype=dtype)
 
     def set(self, w1, w2, w3):
@@ -97,7 +97,7 @@ class SwiGLU(nn.Module):
         self.w3 = w3
 
     def forward(self, x):
-        print(self.w1.weight.shape, x.shape)
+        # (self.w1.weight.shape, x.shape)
         result = self.w1.forward(x)
         result = silu(result)
         result = result * self.w3.forward(x)
@@ -209,7 +209,7 @@ def scaled_dot_product_attention(Q, K, V, mask):
 
 
 class MultiheadSelfAttention(nn.Module):
-    def __init__(self, d_model, num_heads, use_rope=True, device=None, dtype=None):
+    def __init__(self, d_model, num_heads, max_seq_len=2048, rope_theta=0, use_rope=True, device=None, dtype=None):
         super().__init__()
         self.d_model = d_model
         self.num_heads = num_heads
@@ -217,27 +217,21 @@ class MultiheadSelfAttention(nn.Module):
         self.d_k = d_model // num_heads
         self.d_v = d_model // num_heads 
 
-        # self.q_proj = torch.nn.Parameter(
-        #     torch.zeros((d_model, d_model), device=device, dtype=dtype))
-        # self.k_proj = torch.nn.Parameter(
-        #     torch.zeros((d_model, d_model), device=device, dtype=dtype))
-        # self.v_proj = torch.nn.Parameter(
-        #     torch.zeros((d_model, d_model), device=device, dtype=dtype))
-        # self.o_proj = torch.nn.Parameter(
-        #     torch.zeros((d_model, d_model), device=device, dtype=dtype))
-
         self.q_proj = Linear(d_model, d_model, device=device, dtype=dtype)
         self.k_proj = Linear(d_model, d_model, device=device, dtype=dtype)
         self.v_proj = Linear(d_model, d_model, device=device, dtype=dtype)
-        self.o_proj = Linear(d_model, d_model, device=device, dtype=dtype)
-        # self.rope = ROPE(10000, self.d_k, 2048)
+        self.output_proj = Linear(d_model, d_model, device=device, dtype=dtype)
 
-    def forward(self, x):
+        if use_rope:
+            # print(rope_theta)
+            self.rope = ROPE(rope_theta, self.d_k, max_seq_len)
+        self.use_rope = use_rope
+
+    def forward(self, x, token_positions=None):
 
         mask = torch.triu(torch.ones(x.shape[1], x.shape[1]), diagonal=1).to(torch.bool)
-        # mask = mask.repeat(x.shape[:-1])
         mask = ~mask
-        print(mask)
+        # print(mask)
 
         q_x = self.q_proj.forward(x)
         k_x = self.k_proj.forward(x)
@@ -256,48 +250,43 @@ class MultiheadSelfAttention(nn.Module):
         k_x = rearrange(k_x, "... seq_len n_head d_k -> ... n_head seq_len d_k")
         v_x = rearrange(v_x, "... seq_len n_head d_k -> ... n_head seq_len d_k")
 
-        # mask = torch.unsqueeze(mask, 0)
+        if token_positions is None:
+            token_positions = torch.arange(q_x.shape[-2])
 
-        print(mask.shape)
-        print(q_x.shape)
-
-        # mask = torch.unsqueeze(torch.unsqueeze(mask, 0), 0).repeat(4,4,1,1)
-        print(mask.shape)
+        if self.use_rope:
+            q_x = self.rope(q_x, token_positions)
+            k_x = self.rope(k_x, token_positions)
 
         result = scaled_dot_product_attention(q_x, k_x, v_x, mask=mask)
-        print(result.shape)
 
         result = rearrange(result, "... n_head seq_len d_k -> ... seq_len (n_head d_k)")
-        print(result.shape)
 
-        result = self.o_proj.forward(result)
+        result = self.output_proj.forward(result)
         
-        print(result)
-
         return result
     
 
 class TransformerBlock(nn.Module):
-    def __init__(self, d_model, num_heads, d_ff, device=None, dtype=None):
+    def __init__(self, d_model, num_heads, d_ff, max_seq_len=2048, rope_theta=0, device=None, dtype=None):
         super().__init__()
         self.d_model = d_model
         self.num_heads = num_heads
         self.d_ff = d_ff
 
-        self.RMSNorm1 = RMSNorm(d_model, 1e-5, device=device, dtype=dtype)
-        self.RMSNorm2 = RMSNorm(d_model, 1e-5, device=device, dtype=dtype)
-        self.glu = SwiGLU(d_model, d_ff, device=device, dtype=dtype)
-        self.MHSA = MultiheadSelfAttention(d_model, num_heads, device=device, dtype=dtype)
+        self.ln1 = RMSNorm(d_model, 1e-5, device=device, dtype=dtype)
+        self.ln2 = RMSNorm(d_model, 1e-5, device=device, dtype=dtype)
+        self.ffn = SwiGLU(d_model, d_ff, device=device, dtype=dtype)
+        self.attn = MultiheadSelfAttention(d_model, num_heads, max_seq_len, rope_theta, device=device, dtype=dtype)
 
     def forward(self, x):
 
-        y = x + self.MHSA(self.k_proj, self.q_proj, self.v_proj, self.out_proj, self.RMSNorm1(x))
-        z = y + self.glu(self.RMSNorm2(x))
+        y = x + self.attn(self.ln1(x))
+        z = y + self.ffn(self.ln2(y))
 
         return z
     
 class TransformerLM(nn.Module):
-    def __init__(self, vocab_size, context_length, d_model, num_layers, num_heads, d_ff, attn_pdrop, residual_pdrop, weights):
+    def __init__(self, vocab_size, context_length, d_model, num_layers, num_heads, d_ff, rope_theta, device=None, dtype=None):
         super().__init__()
         self.vocab_size = vocab_size
         self.context_length = context_length
@@ -305,35 +294,24 @@ class TransformerLM(nn.Module):
         self.num_layers = num_layers
         self.num_heads = num_heads
         self.d_ff = d_ff
-        self.attn_pdrop = attn_pdrop
-        self.residual_pdrop = residual_pdrop
-        self.weights = weights
+
+        self.token_embeddings = Embedding(vocab_size, d_model, device=device, dtype=dtype)
+
+        self.layers = nn.ModuleList()
+        for i in range(num_layers):
+            self.layers.append(TransformerBlock(d_model, num_heads, d_ff, context_length, rope_theta, device=device, dtype=dtype))
+
+        self.ln_final = RMSNorm(d_model, 1e-5, device=device, dtype=dtype)
+        self.lm_head = Linear(d_model, vocab_size, device=device, dtype=dtype)
 
     def forward(self, x):
 
-        TokenEmbedding = torch.nn.Embedding(self.vocab_size, self.d_model)
-        PositionEmbedding = torch.nn.Embedding(self.context_length, self.d_model)
-        with torch.no_grad(): TokenEmbedding.weight.copy_(self.weights['token_embeddings.weight'])
-        with torch.no_grad(): PositionEmbedding.weight.copy_(self.weights['position_embeddings.weight'])
-
-        y = TokenEmbedding(x) + PositionEmbedding(torch.arange(x.shape[1]))
-
+        x = self.token_embeddings(x)
 
         for i in range(self.num_layers):
-            Block = TransformerBlock(self.d_model, self.num_heads, self.d_ff, self.attn_pdrop, self.residual_pdrop, 
-                                     self.weights[f'layers.{i}.ln1.weight'], self.weights[f'layers.{i}.ln2.weight'], 
-                                     self.weights[f'layers.{i}.ffn.w1.weight'], self.weights[f'layers.{i}.ffn.w2.weight'],
-                                     self.weights[f'layers.{i}.attn.k_proj.weight'], self.weights[f'layers.{i}.attn.q_proj.weight'], 
-                                     self.weights[f'layers.{i}.attn.v_proj.weight'], self.weights[f'layers.{i}.attn.output_proj.weight'])
-            y = Block(y)
+            x = self.layers[i](x)
 
-        RMS = RMSNorm(self.d_model, 1e-5, self.weights['ln_final.weight'])
-        y = RMS(y)
+        x = self.ln_final(x)
+        x = self.lm_head(x)
 
-        OutputEmbedding = torch.nn.Linear(self.d_model, self.vocab_size)
-        with torch.no_grad(): OutputEmbedding.weight.copy_(self.weights['lm_head.weight'])
-        y = OutputEmbedding(y)
-        print(y.shape)
-        y = softmax(y, dim=-1)
-
-        return y
+        return x

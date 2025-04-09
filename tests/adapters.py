@@ -9,9 +9,9 @@ import numpy.typing as npt
 import torch
 from torch import Tensor
 
-from cs336_basics.tokenizer import train_bpe, BPETokenizer, train_bpe_new
-from cs336_basics.transformer import Linear, Embedding, RMSNorm, SwiGLU, silu, softmax, scaled_dot_product_attention, MultiheadSelfAttention, ROPE
-from cs336_basics.train import cross_entropy, learning_rate_schedule, gradient_clipping, data_loading
+from cs336_basics.tokenizer import BPETokenizer, train_bpe_clean, train_bpe_clean_splits
+from cs336_basics.transformer import Linear, Embedding, RMSNorm, SwiGLU, silu, softmax, scaled_dot_product_attention, MultiheadSelfAttention, ROPE, TransformerBlock, TransformerLM
+from cs336_basics.train import cross_entropy, learning_rate_schedule, gradient_clipping, data_loading, save_checkpoint, load_checkpoint
 from cs336_basics.optimizer import AdamW
 
 def run_linear(
@@ -34,8 +34,7 @@ def run_linear(
     """
 
     linear = Linear(d_in, d_out)
-    linear.set(weights)
-    # print(linear.weights)
+    linear.weight.data = weights
     return linear.forward(in_features)
 
     raise NotImplementedError
@@ -93,9 +92,9 @@ def run_swiglu(
     # swiglu.load_state_dict(weights)
     # You can also manually assign the weights
     swiglu = SwiGLU(d_model, d_ff)
-    swiglu.w1.weight.data = w1_weight.T
-    swiglu.w2.weight.data = w2_weight.T
-    swiglu.w3.weight.data = w3_weight.T
+    swiglu.w1.weight.data = w1_weight
+    swiglu.w2.weight.data = w2_weight
+    swiglu.w3.weight.data = w3_weight
     return swiglu.forward(in_features)
     raise NotImplementedError
 
@@ -154,10 +153,18 @@ def run_multihead_self_attention(
         implementation with the given QKV projection weights and input features.
     """
     mhsa = MultiheadSelfAttention(d_model, num_heads, use_rope=False)
-    mhsa.q_proj.data = q_proj_weight
-    mhsa.k_proj.data = k_proj_weight
-    mhsa.v_proj.data = v_proj_weight
-    mhsa.o_proj.data = o_proj_weight
+
+    mhsa.q_proj.weight.data = q_proj_weight
+    mhsa.k_proj.weight.data = k_proj_weight
+    mhsa.v_proj.weight.data = v_proj_weight
+    mhsa.output_proj.weight.data = o_proj_weight
+
+    # mhsa.q_proj.set(q_proj_weight)
+    # mhsa.k_proj.set(k_proj_weight)
+    # mhsa.v_proj.set(v_proj_weight)
+    # mhsa.o_proj.set(o_proj_weight)
+
+    # return torch.zeros(in_features.shape)
 
     return mhsa.forward(in_features)
     raise NotImplementedError
@@ -200,6 +207,15 @@ def run_multihead_self_attention_with_rope(
         Float[Tensor, " ... sequence_length d_out"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
+    mhsa = MultiheadSelfAttention(d_model, num_heads, max_seq_len, theta, use_rope=True)
+
+    mhsa.q_proj.weight.data = q_proj_weight
+    mhsa.k_proj.weight.data = k_proj_weight
+    mhsa.v_proj.weight.data = v_proj_weight
+    mhsa.output_proj.weight.data = o_proj_weight
+
+    return mhsa.forward(in_features, token_positions)
+
     raise NotImplementedError
 
 
@@ -297,8 +313,9 @@ def run_transformer_block(
         Float[Tensor, "batch sequence_length d_model"] Tensor with the output of
         running the Transformer block on the input features while using RoPE.
     """
-    block = TransformerBlock()
-    block.RMSNorm1
+    block = TransformerBlock(d_model, num_heads, d_ff, max_seq_len=max_seq_len, rope_theta=theta)
+    block.load_state_dict(weights)
+    return block(in_features)
     raise NotImplementedError
 
 
@@ -382,6 +399,9 @@ def run_transformer_lm(
         Float[Tensor, "batch_size sequence_length vocab_size"]: Tensor with the predicted unnormalized
         next-word distribution for each token.
     """
+    transformer = TransformerLM(vocab_size, context_length, d_model, num_layers, num_heads, d_ff, rope_theta)
+    transformer.load_state_dict(weights)
+    return transformer(in_indices)
     raise NotImplementedError
 
 
@@ -406,7 +426,8 @@ def run_rmsnorm(
         RMSNorm of the `in_features`.
     """
     norm = RMSNorm(d_model, eps)
-    norm.set(weights)
+    # norm.set(weights)
+    norm.weight.data = weights
     return norm.forward(in_features)
     raise NotImplementedError
 
@@ -550,7 +571,8 @@ def run_save_checkpoint(
             we've completed.
         out (str | os.PathLike | BinaryIO | IO[bytes]): Path or file-like object to serialize the model, optimizer, and iteration to.
     """
-    raise NotImplementedError
+    save_checkpoint(model, optimizer, iteration, out)
+    # raise NotImplementedError
 
 
 def run_load_checkpoint(
@@ -571,6 +593,7 @@ def run_load_checkpoint(
     Returns:
         int: the previously-serialized number of iterations.
     """
+    return load_checkpoint(src, model, optimizer)
     raise NotImplementedError
 
 
@@ -624,4 +647,5 @@ def run_train_bpe(
                 representing that <token1> was merged with <token2>.
                 Merges are ordered by order of creation.
     """
-    return train_bpe_new(input_path, vocab_size, special_tokens)
+    return train_bpe_clean_splits(input_path, vocab_size, special_tokens)
+    # return train_bpe(input_path, vocab_size, special_tokens)

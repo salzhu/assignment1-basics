@@ -111,30 +111,30 @@ def test_multihead_self_attention(numpy_snapshot, in_embeddings, d_model, n_head
     numpy_snapshot.assert_match(actual_output, atol=1e-6)
 
 
-# def test_multihead_self_attention_with_rope(
-#     numpy_snapshot, in_embeddings, d_model, n_heads, ts_state_dict, n_keys, theta, pos_ids
-# ):
-#     d, _ = ts_state_dict
-#     q_proj_weight, k_proj_weight, v_proj_weight, o_proj_weight = [
-#         d[f"layers.0.attn.{k}_proj.weight"] for k in ["q", "k", "v", "output"]
-#     ]
-#     # reference_weights = torch.load(FIXTURES_PATH / "unbatched_multihead_self_attention_weights.pt")
-#     # expected_output = torch.load(FIXTURES_PATH / "unbatched_multihead_self_attention_expected_output.pt")
-#     pos_ids = rearrange(pos_ids, "seq -> 1 seq")
-#     actual_output = run_multihead_self_attention_with_rope(
-#         d_model=d_model,
-#         num_heads=n_heads,
-#         max_seq_len=n_keys,
-#         theta=theta,
-#         q_proj_weight=q_proj_weight,
-#         k_proj_weight=k_proj_weight,
-#         v_proj_weight=v_proj_weight,
-#         o_proj_weight=o_proj_weight,
-#         in_features=in_embeddings,
-#         token_positions=pos_ids,
-#     )
-#     # numpy.testing.assert_allclose(actual_output.detach().numpy(), expected_output.detach().numpy(), atol=1e-6)
-#     numpy_snapshot.assert_match(actual_output, atol=1e-6)
+def test_multihead_self_attention_with_rope(
+    numpy_snapshot, in_embeddings, d_model, n_heads, ts_state_dict, n_keys, theta, pos_ids
+):
+    d, _ = ts_state_dict
+    q_proj_weight, k_proj_weight, v_proj_weight, o_proj_weight = [
+        d[f"layers.0.attn.{k}_proj.weight"] for k in ["q", "k", "v", "output"]
+    ]
+    # reference_weights = torch.load(FIXTURES_PATH / "unbatched_multihead_self_attention_weights.pt")
+    # expected_output = torch.load(FIXTURES_PATH / "unbatched_multihead_self_attention_expected_output.pt")
+    pos_ids = rearrange(pos_ids, "seq -> 1 seq")
+    actual_output = run_multihead_self_attention_with_rope(
+        d_model=d_model,
+        num_heads=n_heads,
+        max_seq_len=n_keys,
+        theta=theta,
+        q_proj_weight=q_proj_weight,
+        k_proj_weight=k_proj_weight,
+        v_proj_weight=v_proj_weight,
+        o_proj_weight=o_proj_weight,
+        in_features=in_embeddings,
+        token_positions=pos_ids,
+    )
+    # numpy.testing.assert_allclose(actual_output.detach().numpy(), expected_output.detach().numpy(), atol=1e-6)
+    numpy_snapshot.assert_match(actual_output, atol=1e-6)
 
 
 def test_transformer_lm(

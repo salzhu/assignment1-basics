@@ -57,7 +57,30 @@ def gradient_clipping(params, max_l2_norm, eps=1e-6):
 def data_loading(dataset, batch_size, context_length, device):
     # temp = np.memmap(dataset, dtype='int', mode='r')
     # print(temp.shape)
-    print(torch.tensor(dataset))
-    print(batch_size, context_length)
-    return torch.zeros(32, 7), torch.zeros(32, 7)
+    inputs = []
+    targets = []
+    possible_start = np.arange(0, len(dataset) - context_length)
+    for i in range(batch_size):
+        ind = np.random.choice(possible_start) 
+        inputs.append(dataset[ind:ind + context_length])
+        targets.append(dataset[ind + 1:ind + 1 + context_length])
+    # inputs = dataset[:-1]
+    # targets = dataset[1:]
+    # print(torch.tensor(dataset))
+    # print(batch_size, context_length)
+    return torch.tensor(np.array(inputs)), torch.tensor(np.array(targets))
     return 
+
+def save_checkpoint(model, optimizer, iteration, out):
+    obj = {}
+    obj['model'] = model.state_dict()
+    obj['optimizer'] = optimizer.state_dict()
+    obj['iteration'] = iteration 
+    torch.save(obj, out)
+    return 
+
+def load_checkpoint(src, model, optimizer):
+    obj = torch.load(src)
+    model.load_state_dict(obj['model'])
+    optimizer.load_state_dict(obj['optimizer'])
+    return obj['iteration']

@@ -19,7 +19,7 @@ def cross_entropy(inputs, targets):
     # print(inputs.shape)
     # print(torch.min(inputs))
     # print(inputs)
-    loss = 0 
+    loss = torch.tensor(0.0) 
     inputs -= torch.unsqueeze(torch.max(inputs, dim=1).values,1)
     # print(torch.min(inputs, dim=1))
     # inputs -= torch.min(inputs)
@@ -28,6 +28,24 @@ def cross_entropy(inputs, targets):
         loss -= inputs[i][targets[i]]
         loss += torch.log(torch.sum(torch.exp(inputs[i][:])))
     return loss / len(inputs)
+
+class CrossEntropyLoss(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, inputs, targets):
+        # print(inputs.shape)
+        # print(torch.min(inputs))
+        # print(inputs)
+        loss = torch.tensor(0.0) 
+        inputs -= torch.unsqueeze(torch.max(inputs, dim=1).values,1)
+        # print(torch.min(inputs, dim=1))
+        # inputs -= torch.min(inputs)
+        # print(inputs)
+        for i in range(len(inputs)):
+            loss -= inputs[i][targets[i]]
+            loss += torch.log(torch.sum(torch.exp(inputs[i][:])))
+        return loss / len(inputs)
 
 def learning_rate_schedule(t, a_max, a_min, T_w, T_c):
     if t < T_w:

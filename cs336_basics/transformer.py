@@ -13,11 +13,12 @@ class Linear(nn.Module):
         self.dtype = dtype
         
         self.weight = torch.nn.Parameter(torch.nn.init.trunc_normal_(
-            torch.empty((out_features, in_features), device=device, dtype=dtype), 
+            torch.randn((out_features, in_features), device=device, dtype=dtype), 
             std = 2/(in_features + out_features), 
             a = -3*2/(in_features + out_features), 
             b = 3*2/(in_features + out_features)
-        ))
+        ), requires_grad=True
+        ) # torch.empty instead of torch.randn
 
     def set(self, weight):
         self.weight = torch.nn.Parameter(weight.T.to(device=self.device, dtype=self.dtype))
@@ -40,7 +41,9 @@ class Embedding(nn.Module):
         self.device = device
         self.dtype = dtype
 
-        self.weight = torch.nn.Parameter(torch.zeros(num_embeddings, embedding_dim, device=device, dtype=dtype))
+        self.weight = torch.nn.Parameter(
+            torch.randn(num_embeddings, embedding_dim, device=device, dtype=dtype), 
+            requires_grad=True)
         
     def set(self, weights):
         self.weight = torch.nn.Parameter(weights.to(device=self.device, dtype=self.dtype))
@@ -52,6 +55,13 @@ class Embedding(nn.Module):
         # print(self.embed[0].tolist())
         # print('-------------------------------------------')
         # print([self.embed[token_id].detach() for token_id in token_ids])
+        # for token_id in token_ids:
+        #     print(self.weight[token_id].tolist())
+        # print(token_ids.shape)
+        # print('blah')
+        # print(self.weight[token_ids])
+        # print(self.weight[token_ids].shape)
+        return self.weight[token_ids]
         return torch.Tensor([self.weight[token_id].tolist() for token_id in token_ids])
         return 
 
@@ -62,7 +72,7 @@ class RMSNorm(nn.Module):
         self.d_model = d_model
         self.device = device
         self.dtype = dtype
-        self.weight = torch.nn.Parameter(torch.zeros(d_model, device=device, dtype=dtype))
+        self.weight = torch.nn.Parameter(torch.randn(d_model, device=device, dtype=dtype), requires_grad=True)
 
     def set(self, weights):
         self.weight = weights.to(device=self.device, dtype=self.dtype)
@@ -107,7 +117,7 @@ class SwiGLU(nn.Module):
 class ROPE(nn.Module):
     def __init__(self, theta: float, d_k: int, max_seq_len: int, device=None):
         super().__init__()
-        self.register_buffer('cos_sin_matrix', torch.zeros(max_seq_len, d_k // 2, 2), persistent=False)
+        self.register_buffer('cos_sin_matrix', torch.randn(max_seq_len, d_k // 2, 2), persistent=False)
         for i in range(max_seq_len):
             for k in range(d_k // 2):
                 # print(torch.tensor(i / (theta ** (2 * k / d_k))))
@@ -177,15 +187,20 @@ class ROPE(nn.Module):
         # x = rearrange(x, 'batch_size seq_len d_k_2 2 -> batch_size seq_len d_model')
         return x
 
-def softmax(v, dim):
+def softmax(v, dim, temp=1.0):
+
+    v /= temp
 
     v = torch.movedim(v, dim, 0)
     v_max = torch.amax(v, dim=0)
     v = v - v_max 
     denom = torch.sum(torch.exp(v), 0)
-    v = torch.exp(v)
-    v /= denom
-    return torch.movedim(v, 0, dim)
+    # print(f"Before exp: v.requires_grad={v.requires_grad}, v.grad={v.grad_fn}")
+    # v = torch.exp(v)
+    v_exp = torch.exp(v)
+    # print(f"After exp: v_exp.requires_grad={v_exp.requires_grad}, v_exp.grad={v_exp.grad_fn}")
+    out = v_exp/ denom
+    return torch.movedim(out, 0, dim)
 
 def scaled_dot_product_attention(Q, K, V, mask):
 
@@ -203,8 +218,12 @@ def scaled_dot_product_attention(Q, K, V, mask):
 
     # print(result)
 
+    # print(f"Before sdpa: result.requires_grad={result.requires_grad}, result.grad={result.grad_fn}")
+
     result = softmax(result, dim=-1)
     result = einsum(result, V, "batch_size ... seq_len_1 seq_len_2, batch_size ... seq_len_2 d_v -> batch_size ... seq_len_1 d_v")
+    # print(f"after sdpa: result.requires_grad={result.requires_grad}, result.grad={result.grad_fn}")
+
     return result
 
 
@@ -262,6 +281,7 @@ class MultiheadSelfAttention(nn.Module):
         result = rearrange(result, "... n_head seq_len d_k -> ... seq_len (n_head d_k)")
 
         result = self.output_proj.forward(result)
+        # print(f"after mhsa: result.requires_grad={result.requires_grad}, result.grad={result.grad_fn}")
         
         return result
     
@@ -282,6 +302,7 @@ class TransformerBlock(nn.Module):
 
         y = x + self.attn(self.ln1(x))
         z = y + self.ffn(self.ln2(y))
+        # print(f"after block: result.requires_grad={z.requires_grad}, result.grad={z.grad_fn}")
 
         return z
     
@@ -313,5 +334,6 @@ class TransformerLM(nn.Module):
 
         x = self.ln_final(x)
         x = self.lm_head(x)
+        # print(f"after lm: result.requires_grad={x.requires_grad}, result.grad={x.grad_fn}")
 
         return x

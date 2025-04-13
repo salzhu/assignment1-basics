@@ -70,6 +70,9 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
     # inputs, targets = data_loading(dataset, args.batch_size, args.context_length, device)
     # targets = targets[:,-1]
 
+    val_inputs, val_targets = data_loading(val_set, 32 * args.batch_size, args.context_length, device)
+    val_targets = val_targets[:,-1]
+
     for it in range(iterations):
         print(f"Training iteration {it}...", end=' ', flush=True)
 
@@ -85,6 +88,7 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
         )
 
         opt.zero_grad()
+        print(inputs.device, model.device)
         outputs = model(inputs)
         # print(f"after forward: result.requires_grad={outputs.requires_grad}, result.grad_fn={outputs.grad_fn}")
         # print(outputs, targets)
@@ -105,15 +109,15 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
         print(f"Loss {loss.cpu().item()}", flush=True)
         wandb.log({"train_loss": loss.cpu().item()}, step=it)
 
-        if it % 50 == 0: # compute validation loss
-            val_inputs, val_targets = data_loading(val_set, args.batch_size, args.context_length, device)
+        if it % 25 == 0: # compute validation loss
+            
             val_outputs = model(val_inputs)
             val_outputs = val_outputs[:,-1,:]#.requires_grad_(True)
-            val_targets = val_targets[:,-1]
             
             val_loss = loss_fn(val_outputs, val_targets)
             print(f"Val. Loss {val_loss.cpu().item()}", flush=True)
             wandb.log({"val_loss": val_loss.cpu().item()}, step=it)
+            del val_outputs, val_loss
 
         if it % checkpoints == 0:
             save_checkpoint(model, opt, it, f'{save_dir}/{model_name}/iteration{it}.pt')
@@ -128,6 +132,7 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
 
 
 def train():
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     # load data as dataset  np.memmap 
     # tokenize, dataset must be tokenized 
     loaded_tokenizer = BPETokenizer(vocab={}, merges={}, special_tokens=[])
@@ -163,7 +168,8 @@ def train():
         args.n_layers, 
         args.n_heads, 
         args.d_ff, 
-        args.rope_theta
+        args.rope_theta, 
+        device=device
     )
 
     # make dir {save_dir}/{model_name}

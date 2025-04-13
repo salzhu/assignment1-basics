@@ -132,6 +132,7 @@ class ROPE(nn.Module):
         # print(x.shape)
         
         # reshape into d_k/2 2
+        print(x.device)
         x_temp = rearrange(x, "... (d_k_split split2) -> ... d_k_split split2", d_k_split=self.d_k // 2, split2=2)
         # result = torch.zeros(x_temp.shape, device=x.device)
 
@@ -205,7 +206,7 @@ def softmax(v, dim, temp=1.0):
 def scaled_dot_product_attention(Q, K, V, mask):
 
     result = einsum(Q, K, "batch_size ... seq_len_1 d_k, batch_size ... seq_len_2 d_k -> batch_size ... seq_len_1 seq_len_2")
-    result /= np.sqrt(K.shape[-1])
+    result = result / np.sqrt(K.shape[-1])
 
     # print(torch.inf * (~mask).long())
     # print(result)

@@ -13,7 +13,8 @@ from optimizer import AdamW
 parser = argparse.ArgumentParser()
 
 # loading tokenizer
-parser.add_argument("--data", type=str, default='/Users/sallyzhu/Desktop/cs336/assignment1-basics/data/TinyStoriesV2-GPT4-valid.txt')
+parser.add_argument("--train", type=str, default='/Users/sallyzhu/Desktop/cs336/assignment1-basics/data/TinyStoriesV2-GPT4-valid.txt')
+parser.add_argument("--valid", type=str, default='/Users/sallyzhu/Desktop/cs336/assignment1-basics/data/TinyStoriesV2-GPT4-valid.txt')
 
 parser.add_argument("--text_path", type=str, default='/Users/sallyzhu/Desktop/cs336/assignment1-basics/data/TinyStoriesV2-GPT4-train.txt')
 parser.add_argument("--vocab_path", type=str, default='/Users/sallyzhu/Desktop/cs336/assignment1-basics/TinyStoriesV2-GPT4-train_v10000_vocab_0411.pickle')
@@ -55,7 +56,7 @@ parser.add_argument("--model_name", type=str, default='temp')
 
 args = parser.parse_args()
 
-def train_model(dataset, model, iterations, save_dir, model_name, checkpoints=100):
+def train_model(dataset, val_set, model, iterations, save_dir, model_name, checkpoints=100):
     print('here')
 
     wandb.init(project=f"{model_name}")
@@ -83,7 +84,6 @@ def train_model(dataset, model, iterations, save_dir, model_name, checkpoints=10
             eps=args.epsilon,
         )
 
-
         opt.zero_grad()
         outputs = model(inputs)
         # print(f"after forward: result.requires_grad={outputs.requires_grad}, result.grad_fn={outputs.grad_fn}")
@@ -105,6 +105,16 @@ def train_model(dataset, model, iterations, save_dir, model_name, checkpoints=10
         print(f"Loss {loss.cpu().item()}", flush=True)
         wandb.log({"train_loss": loss.cpu().item()}, step=it)
 
+        if it % 50 == 0: # compute validation loss
+            val_inputs, val_targets = data_loading(val_set, args.batch_size, args.context_length, device)
+            val_outputs = model(val_inputs)
+            val_outputs = val_outputs[:,-1,:]#.requires_grad_(True)
+            val_targets = val_targets[:,-1]
+            
+            val_loss = loss_fn(val_outputs, val_targets)
+            print(f"Val. Loss {val_loss.cpu().item()}", flush=True)
+            wandb.log({"val_loss": val_loss.cpu().item()}, step=it)
+
         if it % checkpoints == 0:
             save_checkpoint(model, opt, it, f'{save_dir}/{model_name}/iteration{it}.pt')
 
@@ -124,7 +134,16 @@ def train():
     # loaded_tokenizer.from_files(args.vocab_path, args.merges_path, special_tokens=["<|endoftext|>"])
     # loaded_tokenizer.encode(test_string)
     encoded = loaded_tokenizer.encode_from_pretokens(
-        args.data,
+        args.train,
+        args.vocab_path,
+        args.merges_path, 
+        args.index_path,
+        args.pretokens_path,
+        ["<|endoftext|>"]
+    )
+
+    val_encoded = loaded_tokenizer.encode_from_pretokens(
+        args.valid,
         args.vocab_path,
         args.merges_path, 
         args.index_path,
@@ -150,7 +169,7 @@ def train():
     # make dir {save_dir}/{model_name}
     os.makedirs(f'{args.save_dir}/{args.model_name}', exist_ok=True)
 
-    train_model(encoded, transformer, args.its, args.save_dir, args.model_name)
+    train_model(encoded, val_encoded, transformer, args.its, args.save_dir, args.model_name)
 
 if __name__ == '__main__':
     train()

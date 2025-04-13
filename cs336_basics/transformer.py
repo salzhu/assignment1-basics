@@ -31,7 +31,7 @@ class Linear(nn.Module):
         # print(self.weights.data.shape)
         # print(x.shape)
         # print('-------------------------------------------')
-        return einsum(self.weight.data.T, x, "in_features out_features, ... in_features -> ... out_features")
+        return einsum(self.weight.T, x, "in_features out_features, ... in_features -> ... out_features")
 
 class Embedding(nn.Module):
     def __init__(self, num_embeddings, embedding_dim, device=None, dtype=None):
@@ -87,7 +87,7 @@ class RMSNorm(nn.Module):
         # print(rms.shape, x.shape)
         # print(self.weights / rms)
 
-        result = einsum(self.weight.data, x / torch.unsqueeze(rms,-1), "d_model, batch_size sequence_length d_model -> batch_size sequence_length d_model")
+        result = einsum(self.weight, x / torch.unsqueeze(rms,-1), "d_model, batch_size sequence_length d_model -> batch_size sequence_length d_model")
     
         return result.to(in_dtype)
     

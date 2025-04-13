@@ -59,7 +59,8 @@ def gradient_clipping(params, max_l2_norm, eps=1e-6):
     grads = []
     for param in params:
         if param.grad is not None:
-            grads.append(param.grad)
+            # print(param.grad.shape)
+            grads.append(param.grad.view(-1))
 
     all_grads = torch.cat(grads, dim=0)
 

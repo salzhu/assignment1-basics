@@ -26,14 +26,14 @@ parser.add_argument("--vocab_size", type=int, default=10000)
 parser.add_argument("--context_length", type=int, default=256)
 parser.add_argument("--d_model", type=int, default=512)
 parser.add_argument("--d_ff", type=int, default=1344)
-parser.add_argument("--n_layers", type=int, default=24)
-parser.add_argument("--n_heads", type=int, default=8)
+parser.add_argument("--n_layers", type=int, default=4)
+parser.add_argument("--n_heads", type=int, default=16)
 
 parser.add_argument("--rope_theta", type=int, default=10000)
 
 # training parameters
 parser.add_argument("--learning_rate", type=float, default=1e-3)
-parser.add_argument("--batch_size", type=int, default=16)
+parser.add_argument("--batch_size", type=int, default=32)
 parser.add_argument("--beta1", type=float, default=0.9)
 parser.add_argument("--beta2", type=float, default=0.999)
 parser.add_argument("--epsilon", type=float, default=1e-8)
@@ -63,7 +63,11 @@ def train_model(dataset, model, iterations, save_dir, model_name, checkpoints=10
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     loss_fn = CrossEntropyLoss()
-    loss_fn = torch.nn.CrossEntropyLoss()
+    # loss_fn = torch.nn.CrossEntropyLoss()
+
+    # using the same batch
+    # inputs, targets = data_loading(dataset, args.batch_size, args.context_length, device)
+    # targets = targets[:,-1]
 
     for it in range(iterations):
         print(f"Training iteration {it}...", end=' ', flush=True)
@@ -79,46 +83,22 @@ def train_model(dataset, model, iterations, save_dir, model_name, checkpoints=10
             eps=args.epsilon,
         )
 
-        # inputs = inputs.requires_grad_(True)
-        # targets = targets.requires_grad_(True)
 
         opt.zero_grad()
         outputs = model(inputs)
         # print(f"after forward: result.requires_grad={outputs.requires_grad}, result.grad_fn={outputs.grad_fn}")
         # print(outputs, targets)
         # print(outputs.shape, targets.shape)
+        # print(outputs, targets)
         outputs = outputs[:,-1,:]#.requires_grad_(True)
         targets = targets[:,-1]
-        # print(outputs.shape, targets.shape)
-        # print(model.parameters())
-        # for param in model.parameters():
-        #     print(param, param.grad)
-        # for param in model.parameters():
-        #     print(param.requires_grad)
-        # print(outputs.requires_grad)
-        # print(outputs)
         
-        
-        # loss = cross_entropy(outputs, targets)
         loss = loss_fn(outputs, targets)
-        # loss.requires_grad = True
-        # print('output has grad ')
-        # print(outputs.grad)
-        # print(targets.grad_fn)
-        # print('loss has grad')
-        # print(loss.grad_fn)
-        # print(loss)
+
         loss.backward()
         # for param in model.parameters():
         #     print(param, param.grad)
 
-        # for param in model.parameters():
-        #     print(param.requires_grad)
-        # print(outputs.grad)
-        # for param in model.parameters():
-        #     print(param, param.grad)
-        # for name, param in model.named_parameters():
-        #     print(f"{name}: requires_grad = {param.requires_grad}", param.grad)
         gradient_clipping(model.parameters(), args.max_l2_norm)
         opt.step()
 
@@ -131,7 +111,7 @@ def train_model(dataset, model, iterations, save_dir, model_name, checkpoints=10
         if it == iterations - 1: # final model
             save_checkpoint(model, opt, it, f'{save_dir}/{model_name}/final.pt')
 
-        del opt, loss, inputs, targets, outputs
+        del opt, loss, outputs #inputs, targets
 
     print("Done training!")
     wandb.finish()
@@ -151,6 +131,10 @@ def train():
         args.pretokens_path,
         ["<|endoftext|>"]
     )
+
+    # print(encoded)
+
+    # encoded = load
     
     # set up model config 
     transformer = TransformerLM(

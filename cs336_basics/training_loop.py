@@ -63,6 +63,7 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
     wandb.init(project=f"{model_name}")
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model.to(device)
 
     loss_fn = CrossEntropyLoss()
     # loss_fn = torch.nn.CrossEntropyLoss()

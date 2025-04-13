@@ -146,49 +146,6 @@ class ROPE(nn.Module):
         result = result.view(x.shape)
 
         return result
-        for i in token_positions:
-            print(i)
-            #print(x_temp.shape)
-            #print(self.cos_sin_matrix.shape)
-            #print(self.cos_sin_matrix[i,:,0].shape)
-            new_append = torch.stack((
-                self.cos_sin_matrix[i,:,0] * x_temp[..., 0] - self.cos_sin_matrix[i,:,1] * x_temp[..., 1], 
-                self.cos_sin_matrix[i,:,1] * x_temp[..., 0] + self.cos_sin_matrix[i,:,0] * x_temp[..., 1]
-            ),dim=-1)
-            print(new_append.shape)
-            result.append(torch.Tensor(new_append))
-
-        # print(result)
-        print(x.shape)
-        result = torch.cat(result, dim=0)
-        print(result.shape)
-
-        result = torch.Tensor(result)
-        result = torch.view(result, x.shape)
-
-        return result
-            
-
-        # self.cos_sin_matrix[..., 0] * x[..., 0] - self.cos_sin_matrix[..., 1] * x[..., 1]
-        # self.cos_sin_matrix[..., 1] * x[..., 0] + self.cos_sin_matrix[..., 0] * x[..., 1]
-        # # x_temp = reshape(x, "... seq_len d_k -> seq_len d_k // 2 2")  ')
-        # x_temp = rearrange(x, "... seq_len d_k -> ... d_k seq_len")
-        # token_positions = torch.flatten(token_positions)
-        # for i in range(len(token_positions)):
-        #     # building R^i 
-        #     R_i = torch.zeros(self.d_k, self.d_k)
-        #     for k in range(self.d_k // 2):
-        #         R_i[2 * k][2 * k] = self.cos_sin_matrix[i][k][0]
-        #         R_i[2 * k + 1][2 * k] = self.cos_sin_matrix[i][k][1]
-        #         R_i[2 * k][2 * k + 1] = -self.cos_sin_matrix[i][k][1]
-        #         R_i[2 * k + 1][2 * k + 1] = self.cos_sin_matrix[i][k][0]
-            
-        # print(self.cos_sin_matrix.shape, token_positions.shape)
-        # print(x.shape)
-        # x = rearrange(x, 'batch_size seq_len d_model -> batch_size seq_len (d_model // 2) 2')
-        # x = einsum(self.cos_sin_matrix[token_positions], x, "seq_len d_k_2 2, batch_size seq_len d_k_2 2 -> batch_size seq_len d_k_2 2")
-        # x = rearrange(x, 'batch_size seq_len d_k_2 2 -> batch_size seq_len d_model')
-        return x
 
 def softmax(v, dim, temp=1.0):
 

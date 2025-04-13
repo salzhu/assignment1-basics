@@ -246,7 +246,7 @@ class MultiheadSelfAttention(nn.Module):
 
         if use_rope:
             # print(rope_theta)
-            self.rope = ROPE(rope_theta, self.d_k, max_seq_len)
+            self.rope = ROPE(rope_theta, self.d_k, max_seq_len, device=device)
         self.use_rope = use_rope
 
     def forward(self, x, token_positions=None):

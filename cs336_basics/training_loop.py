@@ -107,18 +107,18 @@ def train_model(dataset, model, iterations, save_dir, model_name, checkpoints=10
         # print(targets.grad_fn)
         # print('loss has grad')
         # print(loss.grad_fn)
-        print(loss)
+        # print(loss)
         loss.backward()
         # for param in model.parameters():
         #     print(param, param.grad)
 
         # for param in model.parameters():
         #     print(param.requires_grad)
-        print(outputs.grad)
+        # print(outputs.grad)
         # for param in model.parameters():
         #     print(param, param.grad)
-        for name, param in model.named_parameters():
-            print(f"{name}: requires_grad = {param.requires_grad}", param.grad)
+        # for name, param in model.named_parameters():
+        #     print(f"{name}: requires_grad = {param.requires_grad}", param.grad)
         gradient_clipping(model.parameters(), args.max_l2_norm)
         opt.step()
 

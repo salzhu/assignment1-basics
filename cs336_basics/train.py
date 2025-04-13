@@ -42,6 +42,7 @@ class CrossEntropyLoss(nn.Module):
         # print(torch.min(inputs, dim=1))
         # inputs -= torch.min(inputs)
         # print(inputs)
+        print(inputs.shape)
         for i in range(len(inputs)):
             loss -= inputs[i][targets[i]]
             loss += torch.log(torch.sum(torch.exp(inputs[i][:])))

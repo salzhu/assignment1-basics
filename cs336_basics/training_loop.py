@@ -67,7 +67,7 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
     print(f"on device {device}")
 
     loss_fn = CrossEntropyLoss()
-    # loss_fn = torch.nn.CrossEntropyLoss()
+    loss_fn = torch.nn.CrossEntropyLoss()
 
     # using the same batch
     # inputs, targets = data_loading(dataset, args.batch_size, args.context_length, device)

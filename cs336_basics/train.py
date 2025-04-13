@@ -37,7 +37,7 @@ class CrossEntropyLoss(nn.Module):
         # print(inputs.shape)
         # print(torch.min(inputs))
         # print(inputs)
-        loss = torch.tensor(0.0) 
+        loss = torch.tensor(0.0, device=inputs.device) 
         inputs -= torch.unsqueeze(torch.max(inputs, dim=1).values,1)
         # print(torch.min(inputs, dim=1))
         # inputs -= torch.min(inputs)

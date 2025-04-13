@@ -133,8 +133,10 @@ class ROPE(nn.Module):
         
         # reshape into d_k/2 2
         print(x.device)
+        print(self.cos_sin_matrix.device)
         x_temp = rearrange(x, "... (d_k_split split2) -> ... d_k_split split2", d_k_split=self.d_k // 2, split2=2)
         # result = torch.zeros(x_temp.shape, device=x.device)
+        print(x_temp.device)
 
         result = torch.stack((
             self.cos_sin_matrix[token_positions,:,0] * x_temp[..., 0] - self.cos_sin_matrix[token_positions,:,1] * x_temp[..., 1], 

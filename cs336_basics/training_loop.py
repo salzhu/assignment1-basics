@@ -2,6 +2,7 @@ import argparse
 import torch
 import wandb
 import os
+import numpy as np 
 
 torch.autograd.set_detect_anomaly(True)
 
@@ -70,7 +71,7 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
     # inputs, targets = data_loading(dataset, args.batch_size, args.context_length, device)
     # targets = targets[:,-1]
 
-    val_inputs, val_targets = data_loading(val_set, 32 * args.batch_size, args.context_length, device)
+    val_inputs, val_targets = data_loading(val_set, 2 * args.batch_size, args.context_length, device)
     val_targets = val_targets[:,-1]
 
     for it in range(iterations):
@@ -88,7 +89,8 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
         )
 
         opt.zero_grad()
-        print(inputs.device, model.device)
+        # print(inputs)
+        # print(inputs.device)
         outputs = model(inputs)
         # print(f"after forward: result.requires_grad={outputs.requires_grad}, result.grad_fn={outputs.grad_fn}")
         # print(outputs, targets)
@@ -110,6 +112,7 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
         wandb.log({"train_loss": loss.cpu().item()}, step=it)
 
         if it % 25 == 0: # compute validation loss
+            # print('here')
             
             val_outputs = model(val_inputs)
             val_outputs = val_outputs[:,-1,:]#.requires_grad_(True)
@@ -135,26 +138,29 @@ def train():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     # load data as dataset  np.memmap 
     # tokenize, dataset must be tokenized 
-    loaded_tokenizer = BPETokenizer(vocab={}, merges={}, special_tokens=[])
+    # loaded_tokenizer = BPETokenizer(vocab={}, merges={}, special_tokens=[])
     # loaded_tokenizer.from_files(args.vocab_path, args.merges_path, special_tokens=["<|endoftext|>"])
     # loaded_tokenizer.encode(test_string)
-    encoded = loaded_tokenizer.encode_from_pretokens(
-        args.train,
-        args.vocab_path,
-        args.merges_path, 
-        args.index_path,
-        args.pretokens_path,
-        ["<|endoftext|>"]
-    )
+    # encoded = loaded_tokenizer.encode_from_pretokens(
+    #     args.train,
+    #     args.vocab_path,
+    #     args.merges_path, 
+    #     args.index_path,
+    #     args.pretokens_path,
+    #     ["<|endoftext|>"]
+    # )
 
-    val_encoded = loaded_tokenizer.encode_from_pretokens(
-        args.valid,
-        args.vocab_path,
-        args.merges_path, 
-        args.index_path,
-        args.pretokens_path,
-        ["<|endoftext|>"]
-    )
+    # val_encoded = loaded_tokenizer.encode_from_pretokens(
+    #     args.valid,
+    #     args.vocab_path,
+    #     args.merges_path, 
+    #     args.index_path,
+    #     args.pretokens_path,
+    #     ["<|endoftext|>"]
+    # )
+
+    train_encoded = np.load(args.train).astype(int)
+    valid_encoded = np.load(args.valid).astype(int)
 
     # print(encoded)
 
@@ -175,7 +181,7 @@ def train():
     # make dir {save_dir}/{model_name}
     os.makedirs(f'{args.save_dir}/{args.model_name}', exist_ok=True)
 
-    train_model(encoded, val_encoded, transformer, args.its, args.save_dir, args.model_name)
+    train_model(train_encoded, valid_encoded, transformer, args.its, args.save_dir, args.model_name)
 
 if __name__ == '__main__':
     train()

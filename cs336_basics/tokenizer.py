@@ -764,6 +764,7 @@ class BPETokenizer:
             self.pretokens = pickle.load(file) 
 
         num_processes = multiprocessing.cpu_count()
+        num_processes = 4
         print(num_processes)
 
         input_params = []

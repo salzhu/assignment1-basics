@@ -3,6 +3,9 @@ import torch
 import wandb
 import os
 import numpy as np 
+import torch.optim as optim
+
+from datetime import datetime
 
 torch.autograd.set_detect_anomaly(True)
 
@@ -63,10 +66,11 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
     wandb.init(project=f"{model_name}")
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    # device = torch.device("mps")
     model.to(device)
     print(f"on device {device}")
 
-    loss_fn = CrossEntropyLoss()
+    # loss_fn = CrossEntropyLoss()
     loss_fn = torch.nn.CrossEntropyLoss()
 
     # using the same batch
@@ -74,21 +78,33 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
     # targets = targets[:,-1]
 
     val_inputs, val_targets = data_loading(val_set, 2 * args.batch_size, args.context_length, device)
-    val_targets = val_targets[:,-1]
+    # val_targets = val_targets[:,-1]
+
+    opt = AdamW(
+        model.parameters(),
+        lr=args.learning_rate,
+        weight_decay=args.weight_decay,
+        betas=(args.beta1, args.beta2),
+        eps=args.epsilon,
+    )
+    # opt = optim.AdamW(model.parameters(), lr=args.learning_rate)
 
     for it in range(iterations):
+        now = datetime.now()
         print(f"Training iteration {it}...", end=' ', flush=True)
 
         inputs, targets = data_loading(dataset, args.batch_size, args.context_length, device)
-        lr = learning_rate_schedule(it, args.lr_min, args.lr_max, args.its_warmup, args.its_cooldown)
+        # lr = learning_rate_schedule(it, args.lr_min, args.lr_max, args.its_warmup, args.its_cooldown)
 
-        opt = AdamW(
-            model.parameters(),
-            lr=lr,
-            weight_decay=args.weight_decay,
-            betas=(args.beta1, args.beta2),
-            eps=args.epsilon,
-        )
+        # opt.defaults['lr'] = lr
+
+        # opt = AdamW(
+        #     model.parameters(),
+        #     lr=lr,
+        #     weight_decay=args.weight_decay,
+        #     betas=(args.beta1, args.beta2),
+        #     eps=args.epsilon,
+        # )
 
         opt.zero_grad()
         # print(inputs)
@@ -98,8 +114,14 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
         # print(outputs, targets)
         # print(outputs.shape, targets.shape)
         # print(outputs, targets)
-        outputs = outputs[:,-1,:]#.requires_grad_(True)
-        targets = targets[:,-1]
+        # outputs = outputs[:,-1,:]#.requires_grad_(True)
+        # targets = targets[:,-1]
+
+        outputs = outputs.view(-1, outputs.size(-1))
+        targets = targets.view(-1)
+
+        print(outputs.shape)
+        print(targets.shape)
         
         loss = loss_fn(outputs, targets)
 
@@ -113,16 +135,16 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
         print(f"Loss {loss.cpu().item()}", flush=True)
         wandb.log({"train_loss": loss.cpu().item()}, step=it)
 
-        if it % 25 == 0: # compute validation loss
-            # print('here')
+        # if it % 25 == 0: # compute validation loss
+        #     # print('here')
             
-            val_outputs = model(val_inputs)
-            val_outputs = val_outputs[:,-1,:]#.requires_grad_(True)
+        #     val_outputs = model(val_inputs)
+        #     # val_outputs = val_outputs[:,-1,:]#.requires_grad_(True)
             
-            val_loss = loss_fn(val_outputs, val_targets)
-            print(f"Val. Loss {val_loss.cpu().item()}", flush=True)
-            wandb.log({"val_loss": val_loss.cpu().item()}, step=it)
-            del val_outputs, val_loss
+        #     val_loss = loss_fn(val_outputs, val_targets)
+        #     print(f"Val. Loss {val_loss.cpu().item()}", flush=True)
+        #     wandb.log({"val_loss": val_loss.cpu().item()}, step=it)
+        #     del val_outputs, val_loss
 
         if it % checkpoints == 0:
             save_checkpoint(model, opt, it, f'{save_dir}/{model_name}/iteration{it}.pt')
@@ -130,7 +152,10 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
         if it == iterations - 1: # final model
             save_checkpoint(model, opt, it, f'{save_dir}/{model_name}/final.pt')
 
-        del opt, loss, outputs #inputs, targets
+        del loss, outputs
+        del inputs, targets
+        print(datetime.now() - now)
+        # del opt
 
     print("Done training!")
     wandb.finish()
@@ -138,6 +163,7 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
 
 def train():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    # device = torch.device("mps")
     # load data as dataset  np.memmap 
     # tokenize, dataset must be tokenized 
     # loaded_tokenizer = BPETokenizer(vocab={}, merges={}, special_tokens=[])
@@ -161,8 +187,11 @@ def train():
     #     ["<|endoftext|>"]
     # )
 
-    train_encoded = np.load(args.train).astype(int)
-    valid_encoded = np.load(args.valid).astype(int)
+    # train_encoded = np.load(args.train).astype(int)
+    # valid_encoded = np.load(args.valid).astype(int)
+
+    train_encoded = np.lib.format.open_memmap(args.train, mode='r').astype(int)
+    valid_encoded = np.lib.format.open_memmap(args.valid, mode='r').astype(int)
 
     # print(encoded)
 

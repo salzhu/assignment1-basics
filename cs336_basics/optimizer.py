@@ -54,12 +54,16 @@ class AdamW(torch.optim.Optimizer):
                 grad = p.grad.data # Get the gradient of loss with respect to p.
                 m = beta1 * m + (1 - beta1) * grad 
                 v = beta2 * v + (1 - beta2) * grad * grad
+                # v.mul_(beta2).add_((1 - beta2) * grad.pow(2))
+                # v.mul_(beta2)
+                # v.addcmul_(grad, grad, value=1 - beta2)
                 lr_t = lr * math.sqrt(1 - beta2 ** t) / (1 - beta1 ** t)
                 p.data -= lr_t * m / (torch.sqrt(v) + eps) 
                 p.data -= lr * lmbda * p.data
                 state["t"] = t + 1 # Increment iteration number.
                 state["m"] = m
                 state["v"] = v
+                del t, m, v, grad
 
         return loss
 

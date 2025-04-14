@@ -110,9 +110,15 @@ class SwiGLU(nn.Module):
         # (self.w1.weight.shape, x.shape)
         result = self.w1.forward(x)
         result = silu(result)
-        result = result * self.w3.forward(x)
-        result = self.w2.forward(result)
-        return result
+        # result = result * self.w3.forward(x)
+        # result = self.w2.forward(result)
+        # return result
+        w3_output = self.w3.forward(x)
+        result.mul_(w3_output)
+        final_output = self.w2.forward(result)
+        del w3_output, result 
+        return final_output
+        return self.w2.forward(result * self.w3.forward(x))
     
 class ROPE(nn.Module):
     def __init__(self, theta: float, d_k: int, max_seq_len: int, device=None):
@@ -152,14 +158,15 @@ def softmax(v, dim, temp=1.0):
     v /= temp
 
     v = torch.movedim(v, dim, 0)
-    v_max = torch.amax(v, dim=0)
-    v = v - v_max 
+    # v_max = torch.amax(v, dim=0)
+    # v = v - v_max 
+    v = v - torch.amax(v, dim=0) 
     denom = torch.sum(torch.exp(v), 0)
     # print(f"Before exp: v.requires_grad={v.requires_grad}, v.grad={v.grad_fn}")
     # v = torch.exp(v)
     v_exp = torch.exp(v)
     # print(f"After exp: v_exp.requires_grad={v_exp.requires_grad}, v_exp.grad={v_exp.grad_fn}")
-    out = v_exp/ denom
+    out = v_exp / denom
     return torch.movedim(out, 0, dim)
 
 def scaled_dot_product_attention(Q, K, V, mask):
@@ -180,7 +187,8 @@ def scaled_dot_product_attention(Q, K, V, mask):
 
     # print(f"Before sdpa: result.requires_grad={result.requires_grad}, result.grad={result.grad_fn}")
 
-    result = softmax(result, dim=-1)
+    # result = softmax(result, dim=-1)
+    result = torch.nn.functional.softmax(result, dim=-1)
     result = einsum(result, V, "batch_size ... seq_len_1 seq_len_2, batch_size ... seq_len_2 d_v -> batch_size ... seq_len_1 d_v")
     # print(f"after sdpa: result.requires_grad={result.requires_grad}, result.grad={result.grad_fn}")
 

@@ -61,6 +61,8 @@ parser.add_argument("--model_name", type=str, default='temp')
 args = parser.parse_args()
 
 def train_model(dataset, val_set, model, iterations, save_dir, model_name, checkpoints=10000):
+
+    model = torch.compile(model)
     # print('here')
 
     wandb.init(project=f"{model_name}")
@@ -89,11 +91,13 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
     )
     # opt = optim.AdamW(model.parameters(), lr=args.learning_rate)
 
+    inputs, targets = data_loading(dataset, args.batch_size, args.context_length, device)
+
     for it in range(iterations):
         now = datetime.now()
         print(f"Training iteration {it}...", end=' ', flush=True)
 
-        inputs, targets = data_loading(dataset, args.batch_size, args.context_length, device)
+        # inputs, targets = data_loading(dataset, args.batch_size, args.context_length, device)
         # lr = learning_rate_schedule(it, args.lr_min, args.lr_max, args.its_warmup, args.its_cooldown)
         lr = learning_rate_schedule(it, 
                                     args.learning_rate, 
@@ -103,36 +107,19 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
 
         opt.defaults['lr'] = lr
 
-        # opt = AdamW(
-        #     model.parameters(),
-        #     lr=lr,
-        #     weight_decay=args.weight_decay,
-        #     betas=(args.beta1, args.beta2),
-        #     eps=args.epsilon,
-        # )
-
         opt.zero_grad()
-        # print(inputs)
-        # print(inputs.device)
         outputs = model(inputs)
-        # print(f"after forward: result.requires_grad={outputs.requires_grad}, result.grad_fn={outputs.grad_fn}")
-        # print(outputs, targets)
-        # print(outputs.shape, targets.shape)
-        # print(outputs, targets)
+
         # outputs = outputs[:,-1,:]#.requires_grad_(True)
         # targets = targets[:,-1]
 
         outputs = outputs.view(-1, outputs.size(-1))
         targets = targets.view(-1)
-
-        print(outputs.shape)
-        print(targets.shape)
         
         loss = loss_fn(outputs, targets)
 
         loss.backward()
-        # for param in model.parameters():
-        #     print(param, param.grad)
+        inputs, targets = data_loading(dataset, args.batch_size, args.context_length, device)
 
         gradient_clipping(model.parameters(), args.max_l2_norm)
         opt.step()
@@ -141,7 +128,6 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
         wandb.log({"train_loss": loss.cpu().item()}, step=it)
 
         if it % 50 == 0: # compute validation loss
-            # print('here')
 
             val_inputs, val_targets = data_loading(val_set, args.batch_size, args.context_length, device)
             

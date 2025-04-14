@@ -84,10 +84,7 @@ def data_loading(dataset, batch_size, context_length, device):
         ind = np.random.choice(possible_start) 
         inputs.append(dataset[ind:ind + context_length])
         targets.append(dataset[ind + 1:ind + 1 + context_length])
-    # inputs = dataset[:-1]
-    # targets = dataset[1:]
-    # print(torch.tensor(dataset))
-    # print(batch_size, context_length)
+
     return torch.tensor(np.array(inputs),device=device), torch.tensor(np.array(targets),device=device)
     return 
 

@@ -11,6 +11,7 @@ torch.autograd.set_detect_anomaly(True)
 
 from tokenizer import BPETokenizer
 from train import cross_entropy, learning_rate_schedule, gradient_clipping, data_loading, save_checkpoint, load_checkpoint, CrossEntropyLoss
+from train import load_batch
 from transformer import TransformerLM
 from optimizer import AdamW
 
@@ -93,7 +94,8 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
     )
     # opt = optim.AdamW(model.parameters(), lr=args.learning_rate)
 
-    inputs, targets = data_loading(dataset, args.batch_size, args.context_length, device)
+    # inputs, targets = data_loading(dataset, args.batch_size, args.context_length, device)
+    inputs, targets = load_batch(dataset, args.batch_size, args.context_length, device)
 
     for it in range(iterations):
         now = datetime.now()
@@ -122,7 +124,8 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
 
         loss.backward()
         del inputs, targets
-        inputs, targets = data_loading(dataset, args.batch_size, args.context_length, device)
+        # inputs, targets = data_loading(dataset, args.batch_size, args.context_length, device)
+        inputs, targets = load_batch(dataset, args.batch_size, args.context_length, device)
 
         gradient_clipping(model.parameters(), args.max_l2_norm)
         opt.step()
@@ -132,7 +135,8 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
 
         if it % 50 == 0: # compute validation loss
 
-            val_inputs, val_targets = data_loading(val_set, args.batch_size, args.context_length, device)
+            # val_inputs, val_targets = data_loading(val_set, args.batch_size, args.context_length, device)
+            val_inputs, val_targets = load_batch(val_set, args.batch_size, args.context_length, device)
             
             val_outputs = model(val_inputs)
             # val_outputs = val_outputs[:,-1,:]#.requires_grad_(True)

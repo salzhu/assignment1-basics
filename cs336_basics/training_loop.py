@@ -60,6 +60,8 @@ parser.add_argument("--model_name", type=str, default='temp')
 
 args = parser.parse_args()
 
+torch.set_float32_matmul_precision('high')
+
 def train_model(dataset, val_set, model, iterations, save_dir, model_name, checkpoints=10000):
 
     model = torch.compile(model)
@@ -189,6 +191,8 @@ def train():
 
     train_encoded = np.lib.format.open_memmap(args.train, mode='r').astype(int)
     valid_encoded = np.lib.format.open_memmap(args.valid, mode='r').astype(int)
+
+    print(type(train_encoded))
 
     # print(encoded)
 

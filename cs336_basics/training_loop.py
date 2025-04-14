@@ -60,7 +60,7 @@ parser.add_argument("--model_name", type=str, default='temp')
 
 args = parser.parse_args()
 
-def train_model(dataset, val_set, model, iterations, save_dir, model_name, checkpoints=100):
+def train_model(dataset, val_set, model, iterations, save_dir, model_name, checkpoints=10000):
     # print('here')
 
     wandb.init(project=f"{model_name}")

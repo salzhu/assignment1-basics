@@ -94,7 +94,12 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
         print(f"Training iteration {it}...", end=' ', flush=True)
 
         inputs, targets = data_loading(dataset, args.batch_size, args.context_length, device)
-        lr = learning_rate_schedule(it, args.lr_min, args.lr_max, args.its_warmup, args.its_cooldown)
+        # lr = learning_rate_schedule(it, args.lr_min, args.lr_max, args.its_warmup, args.its_cooldown)
+        lr = learning_rate_schedule(it, 
+                                    args.learning_rate, 
+                                    10.0 * args.learning_rate, 
+                                    0.1 * args.its, 
+                                    args.its)
 
         opt.defaults['lr'] = lr
 

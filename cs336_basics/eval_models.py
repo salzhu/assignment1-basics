@@ -1,0 +1,109 @@
+# load models 
+
+import torch 
+from tqdm import tqdm 
+import argparse
+import numpy as np 
+
+from tokenizer import BPETokenizer
+from train import cross_entropy, learning_rate_schedule, gradient_clipping, data_loading, save_checkpoint, load_checkpoint, CrossEntropyLoss
+from train import load_batch
+from transformer import TransformerLM
+from optimizer import AdamW
+
+parser = argparse.ArgumentParser()
+
+parser.add_argument("--dataset", type=str, default='/Users/sallyzhu/Desktop/cs336/assignment1-basics/TinyStoriesValid_tokenized.npy')
+parser.add_argument("--batch_size", type=int, default=32)
+parser.add_argument("--context_length", type=int, default=256)
+parser.add_argument("--n_batches", type=int, default=1000)
+
+parser.add_argument("--vocab_size", type=int, default=10000)
+parser.add_argument("--d_model", type=int, default=512)
+parser.add_argument("--d_ff", type=int, default=1344)
+parser.add_argument("--n_layers", type=int, default=4)
+parser.add_argument("--n_heads", type=int, default=16)
+
+parser.add_argument("--rope_theta", type=int, default=10000)
+
+# training parameters
+parser.add_argument("--learning_rate", type=float, default=1e-3)
+parser.add_argument("--beta1", type=float, default=0.9)
+parser.add_argument("--beta2", type=float, default=0.999)
+parser.add_argument("--epsilon", type=float, default=1e-8)
+parser.add_argument("--weight_decay", type=float, default=0.01)
+
+parser.add_argument("--save_dir", type=str, default='runs')
+
+args = parser.parse_args()
+
+
+def eval(dataset, model, device):
+    loss_fn = torch.nn.CrossEntropyLoss()
+
+    total_loss = 0 
+
+    for i in tqdm(range(args.n_batches)):
+
+        val_inputs, val_targets = load_batch(dataset, args.batch_size, args.context_length, device)
+                
+        val_outputs = model(val_inputs)
+        # val_outputs = val_outputs[:,-1,:]#.requires_grad_(True)
+        val_outputs = val_outputs.view(-1, val_outputs.size(-1))
+        val_targets = val_targets.view(-1)
+        
+        with torch.no_grad():
+            val_loss = loss_fn(val_outputs, val_targets)
+            total_loss += val_loss.cpu().item()
+
+    return total_loss / args.n_batches
+
+if __name__ == '__main__':
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    dataset = np.lib.format.open_memmap(args.dataset, mode='r').astype(int)
+
+    model_paths = [
+        'lr_1e_1_64_0414',
+        'lr_1e_4_256_0414',
+        'lr_2e_3_256_0414',
+        'lr_5e_4_256_0414',
+        'lr_100_64_0414',
+        'lr_1e_3_128_0414',
+        'lr_4e_3_256_0414',
+        'lr_5e_5_256_0414',
+        'lr_10_32_0414',
+        'lr_1e_2_128_0414',
+        'lr_1e_3_256_0414',
+        'lr_2e_2_128_0414',
+        'lr_1e_1_128_0414',
+        'lr_1e_2_256_0414',
+        'lr_2e_3_128_0414',
+        'lr_5e_4_128_0414'
+    ]
+
+    model_paths = [
+        'temp', 'temp'
+    ]
+
+    transformer = TransformerLM(
+        args.vocab_size, 
+        args.context_length, 
+        args.d_model, 
+        args.n_layers, 
+        args.n_heads, 
+        args.d_ff, 
+        args.rope_theta, 
+        device=device
+    )
+    opt = AdamW(
+        transformer.parameters(),
+        lr=args.learning_rate,
+        weight_decay=args.weight_decay,
+        betas=(args.beta1, args.beta2),
+        eps=args.epsilon,
+    )
+
+    for model_name in model_paths: 
+        load_checkpoint(f'{args.save_dir}/{model_name}/final.pt', transformer, opt)
+        eval_loss = eval(dataset, transformer, device)
+        print(model_name, eval_loss)

@@ -88,7 +88,7 @@ def data_loading(dataset, batch_size, context_length, device):
     # targets = dataset[1:]
     # print(torch.tensor(dataset))
     # print(batch_size, context_length)
-    return torch.tensor(np.array(inputs)), torch.tensor(np.array(targets))
+    return torch.tensor(np.array(inputs),device=device), torch.tensor(np.array(targets),device=device)
     return 
 
 def save_checkpoint(model, optimizer, iteration, out):

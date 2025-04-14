@@ -119,6 +119,7 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
         loss = loss_fn(outputs, targets)
 
         loss.backward()
+        del inputs, targets
         inputs, targets = data_loading(dataset, args.batch_size, args.context_length, device)
 
         gradient_clipping(model.parameters(), args.max_l2_norm)
@@ -149,7 +150,7 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
             save_checkpoint(model, opt, it, f'{save_dir}/{model_name}/final.pt')
 
         del loss, outputs
-        del inputs, targets
+        # del inputs, targets
         print(datetime.now() - now)
         # del opt
 

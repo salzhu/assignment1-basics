@@ -119,6 +119,9 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
 
         outputs = outputs.view(-1, outputs.size(-1))
         targets = targets.view(-1)
+
+        print(outputs.shape)
+        print(targets.shape)
         
         loss = loss_fn(outputs, targets)
 

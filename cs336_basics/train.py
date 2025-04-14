@@ -2,6 +2,7 @@ import numpy as np
 import torch 
 import torch.nn as nn
 from einops import rearrange, einsum
+from numpy.lib.stride_tricks import sliding_window_view
 
 """Given a tensor of inputs and targets, compute the average cross-entropy
     loss across examples.
@@ -73,6 +74,19 @@ def gradient_clipping(params, max_l2_norm, eps=1e-6):
                 param.grad *= max_l2_norm / (norm + eps)
             # norm = torch.norm(param.grad)
             # print(norm)
+
+def load_batch(
+        x: np.ndarray, 
+        batch_size: int, 
+        context_length: int, 
+        device: torch.device | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+    start_indices = np.random.randint(0, len(x)-context_length, size=batch_size)
+    all_windows = sliding_window_view(x, context_length + 1)
+    data = all_windows[start_indices]
+    input_sequences = torch.tensor(data[:, :-1], dtype=torch.long, device=device)
+    target_sequences = torch.tensor(data[:, 1:], dtype=torch.long, device=device)
+    return input_sequences, target_sequences
 
 def data_loading(dataset, batch_size, context_length, device):
     # temp = np.memmap(dataset, dtype='int', mode='r')

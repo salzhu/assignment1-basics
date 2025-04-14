@@ -19,12 +19,6 @@ class Linear(nn.Module):
             b = 3*2/(in_features + out_features)
         ), requires_grad=True
         ) # torch.empty instead of torch.randn
-
-    def set(self, weight):
-        self.weight = torch.nn.Parameter(weight.T.to(device=self.device, dtype=self.dtype))
-
-    def get(self):
-        return self.weight.T
         
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # print(self.in_features, self.out_features)

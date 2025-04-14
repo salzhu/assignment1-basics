@@ -95,13 +95,13 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
     # opt = optim.AdamW(model.parameters(), lr=args.learning_rate)
 
     # inputs, targets = data_loading(dataset, args.batch_size, args.context_length, device)
-    inputs, targets = load_batch(dataset, args.batch_size, args.context_length, device)
+    # inputs, targets = load_batch(dataset, args.batch_size, args.context_length, device)
 
     for it in range(iterations):
-        now = datetime.now()
+        # now = datetime.now()
         print(f"Training iteration {it}...", end=' ', flush=True)
 
-        # inputs, targets = data_loading(dataset, args.batch_size, args.context_length, device)
+        inputs, targets = load_batch(dataset, args.batch_size, args.context_length, device)
         # lr = learning_rate_schedule(it, args.lr_min, args.lr_max, args.its_warmup, args.its_cooldown)
         lr = learning_rate_schedule(it, 
                                     args.learning_rate, 
@@ -125,7 +125,7 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
         loss.backward()
         del inputs, targets
         # inputs, targets = data_loading(dataset, args.batch_size, args.context_length, device)
-        inputs, targets = load_batch(dataset, args.batch_size, args.context_length, device)
+        # inputs, targets = load_batch(dataset, args.batch_size, args.context_length, device)
 
         gradient_clipping(model.parameters(), args.max_l2_norm)
         opt.step()
@@ -157,7 +157,7 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
 
         del loss, outputs
         # del inputs, targets
-        print(datetime.now() - now)
+        # print(datetime.now() - now)
         # del opt
 
     print("Done training!")

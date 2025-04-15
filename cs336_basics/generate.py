@@ -79,18 +79,18 @@ if __name__ == '__main__':
     )
 
     saved_state_dict = torch.load(f'{args.save_dir}/{args.model_name}/final.pt')
-    saved_state_dict = saved_state_dict['model']
+    # saved_state_dict = saved_state_dict['model']
 
-    # Create a new state dict with modified keys
-    new_state_dict = {}
-    for key, value in saved_state_dict.items():
-        if key.startswith('_orig_mod.'):
-            new_key = key.replace('_orig_mod.', '')
-        else:
-            new_key = key
-        new_state_dict[new_key] = value
+    # # Create a new state dict with modified keys
+    # new_state_dict = {}
+    # for key, value in saved_state_dict.items():
+    #     if key.startswith('_orig_mod.'):
+    #         new_key = key.replace('_orig_mod.', '')
+    #     else:
+    #         new_key = key
+    #     new_state_dict[new_key] = value
 
-    transformer.load_state_dict(new_state_dict)
+    transformer.load_state_dict(saved_state_dict)
 
     prompt = args.prompt
 

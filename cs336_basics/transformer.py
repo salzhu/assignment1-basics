@@ -127,7 +127,7 @@ class SiLU(nn.Module):
         result = self.w1.forward(x)
         result = silu(result)
 
-        output = self.w2.forward(x)
+        output = self.w2.forward(result)
         return output
         return self.w2.forward(result * self.w3.forward(x))
 

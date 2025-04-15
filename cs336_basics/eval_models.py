@@ -81,8 +81,6 @@ if __name__ == '__main__':
         'lr_5e_4_128_0414'
     ]
 
-    model_paths = ['temp']
-
     transformer = TransformerLM(
         args.vocab_size, 
         args.context_length, 

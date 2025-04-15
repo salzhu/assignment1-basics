@@ -117,6 +117,20 @@ class SwiGLU(nn.Module):
         return final_output
         return self.w2.forward(result * self.w3.forward(x))
     
+class SiLU(nn.Module):
+    def __init__(self, d_model, d_ff, device=None, dtype=None):
+        super().__init__()
+        self.w1 = Linear(d_model, d_ff, device=device, dtype=dtype)
+        self.w2 = Linear(d_ff, d_model, device=device, dtype=dtype)
+
+    def forward(self, x):
+        result = self.w1.forward(x)
+        result = silu(result)
+
+        output = self.w2.forward(x)
+        return output
+        return self.w2.forward(result * self.w3.forward(x))
+
 class ROPE(nn.Module):
     def __init__(self, theta: float, d_k: int, max_seq_len: int, device=None):
         super().__init__()
@@ -262,15 +276,16 @@ class TransformerBlock(nn.Module):
 
         self.ln1 = RMSNorm(d_model, 1e-5, device=device, dtype=dtype)
         self.ln2 = RMSNorm(d_model, 1e-5, device=device, dtype=dtype)
-        self.ffn = SwiGLU(d_model, d_ff, device=device, dtype=dtype)
+        # self.ffn = SwiGLU(d_model, d_ff, device=device, dtype=dtype)
+        self.ffn = SiLU(d_model, d_ff, device=device, dtype=dtype)
         self.attn = MultiheadSelfAttention(d_model, num_heads, max_seq_len, rope_theta, device=device, dtype=dtype)
 
     def forward(self, x):
 
-        # y = x + self.attn(self.ln1(x))
-        # z = y + self.ffn(self.ln2(y))
-        y = self.ln1(x + self.attn(x))
-        z = self.ln2(y + self.ffn(y))
+        y = x + self.attn(self.ln1(x))
+        z = y + self.ffn(self.ln2(y))
+        # y = self.ln1(x + self.attn(x))
+        # z = self.ln2(y + self.ffn(y))
         # y = x + self.attn(x)
         # z = y + self.ffn(y)
         # print(f"after block: result.requires_grad={z.requires_grad}, result.grad={z.grad_fn}")

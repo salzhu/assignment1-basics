@@ -90,7 +90,7 @@ if __name__ == '__main__':
             new_key = key
         new_state_dict[new_key] = value
 
-    transformer.load_state_dict(saved_state_dict)
+    transformer.load_state_dict(new_state_dict)
 
     prompt = args.prompt
 

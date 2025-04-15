@@ -193,7 +193,7 @@ def scaled_dot_product_attention(Q, K, V, mask):
 
 
 class MultiheadSelfAttention(nn.Module):
-    def __init__(self, d_model, num_heads, max_seq_len=2048, rope_theta=0, use_rope=True, device=None, dtype=None):
+    def __init__(self, d_model, num_heads, max_seq_len=2048, rope_theta=0, use_rope=False, device=None, dtype=None):
         super().__init__()
         self.d_model = d_model
         self.num_heads = num_heads
@@ -206,10 +206,12 @@ class MultiheadSelfAttention(nn.Module):
         self.v_proj = Linear(d_model, d_model, device=device, dtype=dtype)
         self.output_proj = Linear(d_model, d_model, device=device, dtype=dtype)
 
+        self.use_rope = False
+
         if rope_theta != 0:
             # print(rope_theta)
             self.rope = ROPE(rope_theta, self.d_k, max_seq_len, device=device)
-        self.use_rope = use_rope
+            self.use_rope = True
 
     def forward(self, x, token_positions=None):
 

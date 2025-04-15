@@ -81,6 +81,9 @@ class RMSNorm(nn.Module):
         # print(rms.shape, x.shape)
         # print(self.weights / rms)
 
+        # print(x.shape)
+        # print((x / torch.unsqueeze(rms,-1)).shape)
+
         result = einsum(self.weight, x / torch.unsqueeze(rms,-1), "d_model, batch_size sequence_length d_model -> batch_size sequence_length d_model")
     
         return result.to(in_dtype)
@@ -203,7 +206,7 @@ class MultiheadSelfAttention(nn.Module):
         self.v_proj = Linear(d_model, d_model, device=device, dtype=dtype)
         self.output_proj = Linear(d_model, d_model, device=device, dtype=dtype)
 
-        if use_rope:
+        if rope_theta != 0:
             # print(rope_theta)
             self.rope = ROPE(rope_theta, self.d_k, max_seq_len, device=device)
         self.use_rope = use_rope

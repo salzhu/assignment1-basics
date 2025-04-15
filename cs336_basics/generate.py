@@ -60,17 +60,6 @@ def generate(model, tokenizer, prompt, temperature=1.0, max_tokens=None, top_p=N
 
     return tokenizer.decode(token_list[len(encoded_prompt):])
 
-    # print(encoded_prompt)
-    # logits = model.forward([encoded_prompt])
-
-    # take softmax 
-    # print(logits[0][-1].shape)
-    # print(logits[0][-1])
-    # probs = softmax(logits[0][-1], dim=0, temp=temperature)
-
-    # token = random.choices(np.arange(len(probs)), weights=probs)
-    return tokenizer.decode(token)
-
 if __name__ == '__main__':
     transformer = TransformerLM(
         args.vocab_size, 
@@ -100,6 +89,8 @@ if __name__ == '__main__':
         else:
             new_key = key
         new_state_dict[new_key] = value
+
+    transformer.load_state_dict(new_state_dict)
 
     prompt = args.prompt
 

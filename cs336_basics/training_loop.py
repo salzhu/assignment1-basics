@@ -201,7 +201,9 @@ def train():
     valid_encoded = np.lib.format.open_memmap(args.valid, mode='r').astype(int)
 
     print(type(train_encoded))
-    print(max(train_encoded), max(valid_encoded))
+    print(valid_encoded)
+    print(max(valid_encoded[:100]))
+    print(max(valid_encoded))
 
     # print(encoded)
 

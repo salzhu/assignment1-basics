@@ -69,7 +69,7 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
     model = torch.compile(model)
     # print('here')
 
-    wandb.init(project=f"{wandb_name}")
+    wandb.init(project=f"{args.wandb_name}", name=args.model_name)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     # device = torch.device("mps")

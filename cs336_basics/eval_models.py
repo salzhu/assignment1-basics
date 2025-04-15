@@ -81,6 +81,8 @@ if __name__ == '__main__':
         'lr_5e_4_128_0414'
     ]
 
+    model_paths = ['temp']
+
     transformer = TransformerLM(
         args.vocab_size, 
         args.context_length, 
@@ -103,6 +105,7 @@ if __name__ == '__main__':
     for model_name in model_paths: 
         # Load the saved state dict
         saved_state_dict = torch.load(f'{args.save_dir}/{model_name}/final.pt')
+        saved_state_dict = saved_state_dict['model']
 
         # Create a new state dict with modified keys
         new_state_dict = {}

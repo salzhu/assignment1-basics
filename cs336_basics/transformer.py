@@ -260,17 +260,17 @@ class TransformerBlock(nn.Module):
         self.num_heads = num_heads
         self.d_ff = d_ff
 
-        # self.ln1 = RMSNorm(d_model, 1e-5, device=device, dtype=dtype)
-        # self.ln2 = RMSNorm(d_model, 1e-5, device=device, dtype=dtype)
+        self.ln1 = RMSNorm(d_model, 1e-5, device=device, dtype=dtype)
+        self.ln2 = RMSNorm(d_model, 1e-5, device=device, dtype=dtype)
         self.ffn = SwiGLU(d_model, d_ff, device=device, dtype=dtype)
         self.attn = MultiheadSelfAttention(d_model, num_heads, max_seq_len, rope_theta, device=device, dtype=dtype)
 
     def forward(self, x):
 
-        # y = x + self.attn(self.ln1(x))
-        # z = y + self.ffn(self.ln2(y))
-        y = x + self.attn(x)
-        z = y + self.ffn(y)
+        y = x + self.attn(self.ln1(x))
+        z = y + self.ffn(self.ln2(y))
+        # y = x + self.attn(x)
+        # z = y + self.ffn(y)
         # print(f"after block: result.requires_grad={z.requires_grad}, result.grad={z.grad_fn}")
 
         return z
@@ -291,7 +291,7 @@ class TransformerLM(nn.Module):
         for i in range(num_layers):
             self.layers.append(TransformerBlock(d_model, num_heads, d_ff, context_length, rope_theta, device=device, dtype=dtype))
 
-        # self.ln_final = RMSNorm(d_model, 1e-5, device=device, dtype=dtype)
+        self.ln_final = RMSNorm(d_model, 1e-5, device=device, dtype=dtype)
         self.lm_head = Linear(d_model, vocab_size, device=device, dtype=dtype)
 
     def forward(self, x):
@@ -301,7 +301,7 @@ class TransformerLM(nn.Module):
         for i in range(self.num_layers):
             x = self.layers[i](x)
 
-        # x = self.ln_final(x)
+        x = self.ln_final(x)
         x = self.lm_head(x)
         # print(f"after lm: result.requires_grad={x.requires_grad}, result.grad={x.grad_fn}")
 

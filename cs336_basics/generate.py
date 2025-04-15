@@ -104,6 +104,6 @@ if __name__ == '__main__':
 
     prompt = args.prompt
 
-    print(generate(transformer, tokenizer, prompt, args.max_tokens))
+    print(generate(transformer, tokenizer, prompt, temperature=args.temp, max_tokens=args.max_tokens))
 
     

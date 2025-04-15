@@ -10,6 +10,11 @@ from tokenizer import BPETokenizer
 parser = argparse.ArgumentParser()
 
 # model parameters
+
+parser.add_argument("--max_tokens", type=int, default=256)
+
+parser.add_argument("--temp", type=float, default=0.2)
+
 parser.add_argument("--vocab_size", type=int, default=10000)
 parser.add_argument("--context_length", type=int, default=256)
 parser.add_argument("--d_model", type=int, default=512)
@@ -17,7 +22,12 @@ parser.add_argument("--d_ff", type=int, default=1344)
 parser.add_argument("--n_layers", type=int, default=24)
 parser.add_argument("--n_heads", type=int, default=8)
 
+parser.add_argument("--prompt", type=str, default='This is a prompt')
+
 parser.add_argument("--rope_theta", type=int, default=10000)
+
+parser.add_argument("--save_dir", type=str, default='runs')
+parser.add_argument("--model_name", type=str, default='lr_1e_3_32_0414')
 
 args = parser.parse_args()
 
@@ -28,6 +38,7 @@ args = parser.parse_args()
 # temperature
 
 def generate(model, tokenizer, prompt, temperature=1.0, max_tokens=None, top_p=None, end_token='<|endoftext|>'):
+    model = torch.compile(model)
     encoded_prompt = tokenizer.encode(prompt)
     encoded_special_token = tokenizer.encode(end_token)[0]
 
@@ -35,8 +46,10 @@ def generate(model, tokenizer, prompt, temperature=1.0, max_tokens=None, top_p=N
 
     while max_tokens is None or (max_tokens is not None and len(token_list) - len(encoded_prompt) < max_tokens):
         # generate new token 
-        print(token_list)
-        logits = model.forward([token_list[:model.context_length]])
+        # print(token_list)
+        tokens = torch.Tensor([token_list[:model.context_length]]).int()
+        # print(tokens)
+        logits = model.forward(tokens)
         # testing end of text logits[0][-1][256] = 10
         probs = softmax(logits[0][-1], dim=0, temp=temperature)
         # if top_p is not None:
@@ -72,13 +85,25 @@ if __name__ == '__main__':
 
     tokenizer = BPETokenizer({}, {}, ["<|endoftext|>"])
     tokenizer.from_files(
-        '/Users/sallyzhu/Desktop/cs336/assignment1-basics/TinyStoriesV2-GPT4-train_v10000_vocab_0411.pickle',
-        '/Users/sallyzhu/Desktop/cs336/assignment1-basics/TinyStoriesV2-GPT4-train_v10000_merges_0411.pickle', 
+        'TinyStoriesV2-GPT4-train_v10000_vocab_0411.pickle',
+        'TinyStoriesV2-GPT4-train_v10000_merges_0411.pickle', 
         ["<|endoftext|>"]
     )
 
-    prompt = 'This is a test'
+    saved_state_dict = torch.load(f'{args.save_dir}/{args.model_name}/final.pt')
+    saved_state_dict = saved_state_dict['model']
 
-    print(generate(transformer, tokenizer, prompt, max_tokens=None))
+    # Create a new state dict with modified keys
+    new_state_dict = {}
+    for key, value in saved_state_dict.items():
+        if key.startswith('_orig_mod.'):
+            new_key = key.replace('_orig_mod.', '')
+        else:
+            new_key = key
+        new_state_dict[new_key] = value
+
+    prompt = args.prompt
+
+    print(generate(transformer, tokenizer, prompt, args.max_tokens))
 
     

@@ -276,8 +276,8 @@ class TransformerBlock(nn.Module):
 
         self.ln1 = RMSNorm(d_model, 1e-5, device=device, dtype=dtype)
         self.ln2 = RMSNorm(d_model, 1e-5, device=device, dtype=dtype)
-        # self.ffn = SwiGLU(d_model, d_ff, device=device, dtype=dtype)
-        self.ffn = SiLU(d_model, d_ff, device=device, dtype=dtype)
+        self.ffn = SwiGLU(d_model, d_ff, device=device, dtype=dtype)
+        # self.ffn = SiLU(d_model, d_ff, device=device, dtype=dtype)
         self.attn = MultiheadSelfAttention(d_model, num_heads, max_seq_len, rope_theta, device=device, dtype=dtype)
 
     def forward(self, x):

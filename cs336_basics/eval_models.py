@@ -81,6 +81,18 @@ if __name__ == '__main__':
         'lr_5e_4_128_0414'
     ]
 
+    model_paths = [
+        'lr_1e_3_512_0414',
+        'lr_2e_3_512_0414',
+        'lr_4e_4_512_0414',
+        'lr_1e_3_64_0414',
+        'lr_2e_3_64_0414',
+        'lr_4e_4_64_0414',
+        'lr_1e_3_32_0414',
+        'lr_2e_3_32_0414',
+        'lr_5e_4_32_0414'
+    ]
+
     transformer = TransformerLM(
         args.vocab_size, 
         args.context_length, 

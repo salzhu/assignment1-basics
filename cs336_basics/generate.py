@@ -79,7 +79,7 @@ if __name__ == '__main__':
     )
 
     saved_state_dict = torch.load(f'{args.save_dir}/{args.model_name}/final.pt')
-    # saved_state_dict = saved_state_dict['model']
+    saved_state_dict = saved_state_dict['model']
 
     # # Create a new state dict with modified keys
     # new_state_dict = {}

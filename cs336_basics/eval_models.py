@@ -101,6 +101,20 @@ if __name__ == '__main__':
     transformer.to(device)
 
     for model_name in model_paths: 
-        load_checkpoint(f'{args.save_dir}/{model_name}/final.pt', transformer, opt)
+        # Load the saved state dict
+        saved_state_dict = torch.load(f'{args.save_dir}/{model_name}/final.pt')
+
+        # Create a new state dict with modified keys
+        new_state_dict = {}
+        for key, value in saved_state_dict.items():
+            if key.startswith('_orig_mod.'):
+                new_key = key.replace('_orig_mod.', '')
+            else:
+                new_key = key
+            new_state_dict[new_key] = value
+
+        # Load the modified state dict into your model
+        transformer.load_state_dict(new_state_dict)
+        # load_checkpoint(f'{args.save_dir}/{model_name}/final.pt', transformer, opt)
         eval_loss = eval(dataset, transformer, device)
         print(model_name, eval_loss)

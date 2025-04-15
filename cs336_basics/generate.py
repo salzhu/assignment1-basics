@@ -38,7 +38,6 @@ args = parser.parse_args()
 # temperature
 
 def generate(model, tokenizer, prompt, temperature=1.0, max_tokens=None, top_p=None, end_token='<|endoftext|>'):
-    model = torch.compile(model)
     encoded_prompt = tokenizer.encode(prompt)
     encoded_special_token = tokenizer.encode(end_token)[0]
 

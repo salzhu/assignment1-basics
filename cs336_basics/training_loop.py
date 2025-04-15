@@ -57,6 +57,7 @@ parser.add_argument("--its_cooldown", type=int, default=800)
 
 # saving
 parser.add_argument("--save_dir", type=str, default='runs')
+parser.add_argument("--wandb_name", type=str, default='temp')
 parser.add_argument("--model_name", type=str, default='temp')
 
 args = parser.parse_args()
@@ -68,7 +69,7 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
     model = torch.compile(model)
     # print('here')
 
-    wandb.init(project=f"{model_name}")
+    wandb.init(project=f"{wandb_name}")
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     # device = torch.device("mps")

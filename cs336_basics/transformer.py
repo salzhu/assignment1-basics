@@ -267,8 +267,10 @@ class TransformerBlock(nn.Module):
 
     def forward(self, x):
 
-        y = x + self.attn(self.ln1(x))
-        z = y + self.ffn(self.ln2(y))
+        # y = x + self.attn(self.ln1(x))
+        # z = y + self.ffn(self.ln2(y))
+        y = self.ln1(x + self.attn(x))
+        z = self.ln2(y + self.ffn(y))
         # y = x + self.attn(x)
         # z = y + self.ffn(y)
         # print(f"after block: result.requires_grad={z.requires_grad}, result.grad={z.grad_fn}")

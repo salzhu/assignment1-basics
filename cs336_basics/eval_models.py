@@ -102,6 +102,7 @@ if __name__ == '__main__':
         betas=(args.beta1, args.beta2),
         eps=args.epsilon,
     )
+    transformer.to(device)
 
     for model_name in model_paths: 
         load_checkpoint(f'{args.save_dir}/{model_name}/final.pt', transformer, opt)

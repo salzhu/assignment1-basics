@@ -150,9 +150,9 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
             print(f"Val. Loss {val_loss.cpu().item()}", flush=True)
             wandb.log({"val_loss": val_loss.cpu().item()}, step=it)
 
-            if val_loss < best_val_loss:
-                best_val_loss = val_loss
-                save_checkpoint(model, opt, it, f'{save_dir}/{model_name}/best.pt')
+            # if val_loss < best_val_loss:
+            #     best_val_loss = val_loss
+            #     save_checkpoint(model, opt, it, f'{save_dir}/{model_name}/best.pt')
 
             del val_outputs, val_loss
 

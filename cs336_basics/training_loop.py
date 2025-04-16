@@ -98,6 +98,8 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
     # inputs, targets = data_loading(dataset, args.batch_size, args.context_length, device)
     # inputs, targets = load_batch(dataset, args.batch_size, args.context_length, device)
 
+    best_val_loss = 1000
+
     for it in range(iterations):
         # now = datetime.now()
         print(f"Training iteration {it}...", end=' ', flush=True)
@@ -147,6 +149,11 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
                 val_loss = loss_fn(val_outputs, val_targets)
             print(f"Val. Loss {val_loss.cpu().item()}", flush=True)
             wandb.log({"val_loss": val_loss.cpu().item()}, step=it)
+
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                save_checkpoint(model, opt, it, f'{save_dir}/{model_name}/best.pt')
+
             del val_outputs, val_loss
 
         if it % checkpoints == 0:

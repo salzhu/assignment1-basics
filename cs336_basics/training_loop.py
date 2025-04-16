@@ -4,6 +4,7 @@ import wandb
 import os
 import numpy as np 
 import torch.optim as optim
+from tqdm import tqdm
 
 from datetime import datetime
 
@@ -93,7 +94,6 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
         betas=(args.beta1, args.beta2),
         eps=args.epsilon,
     )
-    # opt = optim.AdamW(model.parameters(), lr=args.learning_rate)
 
     # inputs, targets = data_loading(dataset, args.batch_size, args.context_length, device)
     # inputs, targets = load_batch(dataset, args.batch_size, args.context_length, device)
@@ -103,7 +103,6 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
         print(f"Training iteration {it}...", end=' ', flush=True)
 
         inputs, targets = load_batch(dataset, args.batch_size, args.context_length, device)
-        # lr = learning_rate_schedule(it, args.lr_min, args.lr_max, args.its_warmup, args.its_cooldown)
         lr = learning_rate_schedule(it, 
                                     args.learning_rate, 
                                     10.0 * args.learning_rate, 
@@ -120,9 +119,6 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
 
         outputs = outputs.view(-1, outputs.size(-1))
         targets = targets.view(-1)
-
-        print(outputs.shape)
-        print(targets.shape)
         
         loss = loss_fn(outputs, targets)
 
@@ -137,7 +133,7 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
         print(f"Loss {loss.cpu().item()}", flush=True)
         wandb.log({"train_loss": loss.cpu().item()}, step=it)
 
-        if it % 50 == 0: # compute validation loss
+        if it % 100 == 0: # compute validation loss
 
             # val_inputs, val_targets = data_loading(val_set, args.batch_size, args.context_length, device)
             val_inputs, val_targets = load_batch(val_set, args.batch_size, args.context_length, device)

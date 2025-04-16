@@ -29,6 +29,9 @@ parser.add_argument("--rope_theta", type=int, default=10000)
 parser.add_argument("--save_dir", type=str, default='runs')
 parser.add_argument("--model_name", type=str, default='lr_1e_3_32_0414')
 
+parser.add_argument("--vocab", type=str, default='TinyStoriesV2-GPT4-train_v10000_vocab_0411.pickle')
+parser.add_argument("--merges", type=str, default='TinyStoriesV2-GPT4-train_v10000_merges_0411.pickle')
+
 args = parser.parse_args()
 
 # i load the model 
@@ -73,8 +76,8 @@ if __name__ == '__main__':
 
     tokenizer = BPETokenizer({}, {}, ["<|endoftext|>"])
     tokenizer.from_files(
-        'TinyStoriesV2-GPT4-train_v10000_vocab_0411.pickle',
-        'TinyStoriesV2-GPT4-train_v10000_merges_0411.pickle', 
+        args.vocab,
+        args.merges, 
         ["<|endoftext|>"]
     )
 

@@ -108,7 +108,7 @@ if __name__ == '__main__':
 
     for model_name in model_paths: 
         # Load the saved state dict
-        saved_state_dict = torch.load(f'{args.save_dir}/{model_name}/iteration420000.pt')
+        saved_state_dict = torch.load(f'{args.save_dir}/{model_name}/final.pt')
         saved_state_dict = saved_state_dict['model']
 
         # Create a new state dict with modified keys

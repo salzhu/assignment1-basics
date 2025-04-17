@@ -95,7 +95,7 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
         inputs, targets = load_batch(dataset, args.batch_size, args.context_length, device)
         lr = learning_rate_schedule(it, 
                                     args.learning_rate, 
-                                    10.0 * args.learning_rate, 
+                                    args.lr_max, 
                                     0.1 * args.its, 
                                     args.its)
 

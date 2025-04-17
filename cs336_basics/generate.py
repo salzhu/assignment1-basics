@@ -34,13 +34,13 @@ parser.add_argument("--merges", type=str, default='TinyStoriesV2-GPT4-train_v100
 
 args = parser.parse_args()
 
-# i load the model 
-# i take a prompt
+# load the model 
+# take a prompt
 # sample until hit end of text
 # or max_tokens
 # temperature
 
-def generate(model, tokenizer, prompt, temperature=1.0, max_tokens=None, top_p=None, end_token='<|endoftext|>'):
+def generate(model, tokenizer, prompt, temperature=1.0, max_tokens=None, end_token='<|endoftext|>'):
     encoded_prompt = tokenizer.encode(prompt)
     encoded_special_token = tokenizer.encode(end_token)[0]
 
@@ -48,14 +48,10 @@ def generate(model, tokenizer, prompt, temperature=1.0, max_tokens=None, top_p=N
 
     while max_tokens is None or (max_tokens is not None and len(token_list) - len(encoded_prompt) < max_tokens):
         # generate new token 
-        # print(token_list)
         tokens = torch.Tensor([token_list[:model.context_length]]).int()
-        # print(tokens)
         logits = model.forward(tokens)
-        # testing end of text logits[0][-1][256] = 10
         probs = softmax(logits[0][-1], dim=0, temp=temperature)
-        # if top_p is not None:
-            # get top p probability tokens
+
         token = random.choices(np.arange(len(probs)), weights=probs)
         token_list.append(token[0])
         if token[0] == encoded_special_token:

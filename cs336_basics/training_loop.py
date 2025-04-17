@@ -3,7 +3,6 @@ import torch
 import wandb
 import os
 import numpy as np 
-import torch.optim as optim
 from tqdm import tqdm
 
 from datetime import datetime
@@ -11,7 +10,7 @@ from datetime import datetime
 torch.autograd.set_detect_anomaly(True)
 
 from tokenizer import BPETokenizer
-from train import cross_entropy, learning_rate_schedule, gradient_clipping, data_loading, save_checkpoint, load_checkpoint, CrossEntropyLoss
+from train import learning_rate_schedule, gradient_clipping, save_checkpoint, load_checkpoint, CrossEntropyLoss
 from train import load_batch
 from transformer import TransformerLM
 from optimizer import AdamW
@@ -68,24 +67,14 @@ torch.set_float32_matmul_precision('high')
 def train_model(dataset, val_set, model, iterations, save_dir, model_name, checkpoints=10000):
 
     model = torch.compile(model)
-    # print('here')
 
     wandb.init(project=f"{args.wandb_name}", name=args.model_name)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    # device = torch.device("mps")
     model.to(device)
     print(f"on device {device}")
 
     loss_fn = CrossEntropyLoss()
-    # loss_fn = torch.nn.CrossEntropyLoss()
-
-    # using the same batch
-    # inputs, targets = data_loading(dataset, args.batch_size, args.context_length, device)
-    # targets = targets[:,-1]
-
-    # val_inputs, val_targets = data_loading(val_set, 2 * args.batch_size, args.context_length, device)
-    # val_targets = val_targets[:,-1]
 
     opt = AdamW(
         model.parameters(),
@@ -95,7 +84,6 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
         eps=args.epsilon,
     )
 
-    # inputs, targets = data_loading(dataset, args.batch_size, args.context_length, device)
     # inputs, targets = load_batch(dataset, args.batch_size, args.context_length, device)
 
     best_val_loss = 1000
@@ -116,9 +104,6 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
         opt.zero_grad()
         outputs = model(inputs)
 
-        # outputs = outputs[:,-1,:]#.requires_grad_(True)
-        # targets = targets[:,-1]
-
         outputs = outputs.view(-1, outputs.size(-1))
         targets = targets.view(-1)
         
@@ -126,7 +111,6 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
 
         loss.backward()
         del inputs, targets
-        # inputs, targets = data_loading(dataset, args.batch_size, args.context_length, device)
         # inputs, targets = load_batch(dataset, args.batch_size, args.context_length, device)
 
         gradient_clipping(model.parameters(), args.max_l2_norm)
@@ -137,11 +121,9 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
 
         if it % 100 == 0: # compute validation loss
 
-            # val_inputs, val_targets = data_loading(val_set, args.batch_size, args.context_length, device)
             val_inputs, val_targets = load_batch(val_set, args.batch_size, args.context_length, device)
             
             val_outputs = model(val_inputs)
-            # val_outputs = val_outputs[:,-1,:]#.requires_grad_(True)
             val_outputs = val_outputs.view(-1, val_outputs.size(-1))
             val_targets = val_targets.view(-1)
             
@@ -173,44 +155,9 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
 
 def train():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    # device = torch.device("mps")
-    # load data as dataset  np.memmap 
-    # tokenize, dataset must be tokenized 
-    # loaded_tokenizer = BPETokenizer(vocab={}, merges={}, special_tokens=[])
-    # loaded_tokenizer.from_files(args.vocab_path, args.merges_path, special_tokens=["<|endoftext|>"])
-    # loaded_tokenizer.encode(test_string)
-    # encoded = loaded_tokenizer.encode_from_pretokens(
-    #     args.train,
-    #     args.vocab_path,
-    #     args.merges_path, 
-    #     args.index_path,
-    #     args.pretokens_path,
-    #     ["<|endoftext|>"]
-    # )
-
-    # val_encoded = loaded_tokenizer.encode_from_pretokens(
-    #     args.valid,
-    #     args.vocab_path,
-    #     args.merges_path, 
-    #     args.index_path,
-    #     args.pretokens_path,
-    #     ["<|endoftext|>"]
-    # )
-
-    # train_encoded = np.load(args.train).astype(int)
-    # valid_encoded = np.load(args.valid).astype(int)
 
     train_encoded = np.lib.format.open_memmap(args.train, mode='r').astype(int)
     valid_encoded = np.lib.format.open_memmap(args.valid, mode='r').astype(int)
-
-    print(type(train_encoded))
-    print(valid_encoded)
-    print(max(valid_encoded[:100]))
-    print(max(valid_encoded))
-
-    # print(encoded)
-
-    # encoded = load
     
     # set up model config 
     transformer = TransformerLM(

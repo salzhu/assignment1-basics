@@ -54,9 +54,7 @@ class AdamW(torch.optim.Optimizer):
                 grad = p.grad.data # Get the gradient of loss with respect to p.
                 m = beta1 * m + (1 - beta1) * grad 
                 v = beta2 * v + (1 - beta2) * grad * grad
-                # v.mul_(beta2).add_((1 - beta2) * grad.pow(2))
-                # v.mul_(beta2)
-                # v.addcmul_(grad, grad, value=1 - beta2)
+
                 lr_t = lr * math.sqrt(1 - beta2 ** t) / (1 - beta1 ** t)
                 p.data -= lr_t * m / (torch.sqrt(v) + eps) 
                 p.data -= lr * lmbda * p.data
@@ -69,7 +67,7 @@ class AdamW(torch.optim.Optimizer):
 
 if __name__ == '__main__':
     weights = torch.nn.Parameter(5 * torch.randn((10, 10)))
-    opt = SGD([weights], lr=100)
+    opt = SGD([weights], lr=1000)
     for t in range(10):
         opt.zero_grad() # Reset the gradients for all learnable parameters.
         loss = (weights**2).mean() # Compute a scalar loss value.

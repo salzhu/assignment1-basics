@@ -9,9 +9,9 @@ import numpy.typing as npt
 import torch
 from torch import Tensor
 
-from cs336_basics.tokenizer import BPETokenizer, train_bpe_clean, train_bpe_clean_splits
+from cs336_basics.tokenizer import BPETokenizer, train_bpe_clean_splits_set
 from cs336_basics.transformer import Linear, Embedding, RMSNorm, SwiGLU, silu, softmax, scaled_dot_product_attention, MultiheadSelfAttention, ROPE, TransformerBlock, TransformerLM
-from cs336_basics.train import cross_entropy, learning_rate_schedule, gradient_clipping, data_loading, save_checkpoint, load_checkpoint
+from cs336_basics.train import learning_rate_schedule, gradient_clipping, data_loading, save_checkpoint, load_checkpoint, CrossEntropyLoss
 from cs336_basics.optimizer import AdamW
 
 def run_linear(
@@ -501,7 +501,10 @@ def run_cross_entropy(inputs: Float[Tensor, " batch_size vocab_size"], targets: 
     Returns:
         Float[Tensor, ""]: The average cross-entropy loss across examples.
     """
-    return cross_entropy(inputs, targets)
+    loss = CrossEntropyLoss()
+    # loss = torch.nn.CrossEntropyLoss()
+    return loss(inputs, targets)
+    # return cross_entropy(inputs, targets)
     raise NotImplementedError
 
 
@@ -647,5 +650,6 @@ def run_train_bpe(
                 representing that <token1> was merged with <token2>.
                 Merges are ordered by order of creation.
     """
-    return train_bpe_clean_splits(input_path, vocab_size, special_tokens)
+    vocab, merges, _, _ = train_bpe_clean_splits_set(input_path, vocab_size, special_tokens)
+    return vocab, merges
     # return train_bpe(input_path, vocab_size, special_tokens)

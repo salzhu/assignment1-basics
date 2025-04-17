@@ -39,7 +39,7 @@ args = parser.parse_args()
 
 
 def eval(dataset, model, device):
-    loss_fn = torch.nn.CrossEntropyLoss()
+    loss_fn = CrossEntropyLoss()
 
     total_loss = 0 
 
@@ -63,12 +63,28 @@ if __name__ == '__main__':
     dataset = np.lib.format.open_memmap(args.dataset, mode='r').astype(int)
 
     model_paths = [
-        # 'lr_5e_4_8_0414',
-        # 'lr_2e_3_8_0414',
-        # 'lr_1e_3_8_0414',
-        'lr_1e_3_1_0414',
-        'lr_2e_3_1_0414',
-        'lr_5e_4_1_0414',
+        'base_1e3_128_l4_d768',
+        'base_1e3_128_l5_d768',
+        'base_1e3_128_l5_d768_s512',
+        'base_1e3_128_l6_d512_s512',
+        'base_1e3_128_l6_d768',
+        'base_1e3_256_l8',
+        'base_1e3_64_l6_d768',
+        'base_2e3_128_l6_d768',
+        'base_2e3_256_l6_d768_s512',
+        'base_2e3_256_l8',
+        'base_2e3_256_l8_s512',
+        'base_2e4_256_l8',
+        'base_5e4_128_l4_d768',
+        'base_5e4_128_l4_d768_s512',
+        'base_5e4_128_l6',
+        'base_5e4_128_l6_d768',
+        'base_5e4_128_l8',
+        'base_5e4_128_l8_itless',
+        'base_5e4_64_l6_d768',
+        'base_5e5_256_l8',
+        'base_setup_2e3_64_v2',
+        'base_lrs_5e4_3_128_l6_d768',
     ]
 
     transformer = TransformerLM(

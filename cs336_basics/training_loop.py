@@ -84,7 +84,7 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
         eps=args.epsilon,
     )
 
-    # inputs, targets = load_batch(dataset, args.batch_size, args.context_length, device)
+    inputs, targets = load_batch(dataset, args.batch_size, args.context_length, device)
 
     best_val_loss = 1000
 
@@ -92,7 +92,7 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
         # now = datetime.now()
         print(f"Training iteration {it}...", end=' ', flush=True)
 
-        inputs, targets = load_batch(dataset, args.batch_size, args.context_length, device)
+        # inputs, targets = load_batch(dataset, args.batch_size, args.context_length, device)
         lr = learning_rate_schedule(it, 
                                     args.learning_rate, 
                                     args.lr_max, 
@@ -111,7 +111,7 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
 
         loss.backward()
         del inputs, targets
-        # inputs, targets = load_batch(dataset, args.batch_size, args.context_length, device)
+        inputs, targets = load_batch(dataset, args.batch_size, args.context_length, device)
 
         gradient_clipping(model.parameters(), args.max_l2_norm)
         opt.step()

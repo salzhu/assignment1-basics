@@ -84,15 +84,15 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
         eps=args.epsilon,
     )
 
-    inputs, targets = load_batch(dataset, args.batch_size, args.context_length, device)
+    # inputs, targets = load_batch(dataset, args.batch_size, args.context_length, device)
 
     best_val_loss = 1000
 
     for it in range(iterations):
         # now = datetime.now()
-        print(f"Training iteration {it}...", end=' ', flush=True)
+        # print(f"Training iteration {it}...", end=' ', flush=True)
 
-        # inputs, targets = load_batch(dataset, args.batch_size, args.context_length, device)
+        inputs, targets = load_batch(dataset, args.batch_size, args.context_length, device)
         lr = learning_rate_schedule(it, 
                                     args.learning_rate, 
                                     args.lr_max, 
@@ -111,12 +111,12 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
 
         loss.backward()
         del inputs, targets
-        inputs, targets = load_batch(dataset, args.batch_size, args.context_length, device)
+        # inputs, targets = load_batch(dataset, args.batch_size, args.context_length, device)
 
         gradient_clipping(model.parameters(), args.max_l2_norm)
         opt.step()
 
-        print(f"Loss {loss.cpu().item()}", flush=True)
+        # print(f"Loss {loss.cpu().item()}", flush=True)
         wandb.log({"train_loss": loss.cpu().item()}, step=it)
 
         if it % 100 == 0: # compute validation loss
@@ -129,7 +129,7 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
             
             with torch.no_grad():
                 val_loss = loss_fn(val_outputs, val_targets)
-            print(f"Val. Loss {val_loss.cpu().item()}", flush=True)
+            # print(f"Val. Loss {val_loss.cpu().item()}", flush=True)
             wandb.log({"val_loss": val_loss.cpu().item()}, step=it)
 
             # if val_loss < best_val_loss:
@@ -138,11 +138,11 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
 
             del val_outputs, val_loss
 
-        if it % checkpoints == 0:
-            save_checkpoint(model, opt, it, f'{save_dir}/{model_name}/iteration{it}.pt')
+        # if it % checkpoints == 0:
+        #     save_checkpoint(model, opt, it, f'{save_dir}/{model_name}/iteration{it}.pt')
 
-        if it == iterations - 1: # final model
-            save_checkpoint(model, opt, it, f'{save_dir}/{model_name}/final.pt')
+        # if it == iterations - 1: # final model
+        #     save_checkpoint(model, opt, it, f'{save_dir}/{model_name}/final.pt')
 
         del loss, outputs
         # del inputs, targets

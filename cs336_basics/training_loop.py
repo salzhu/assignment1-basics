@@ -117,9 +117,9 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
         opt.step()
 
         # print(f"Loss {loss.cpu().item()}", flush=True)
-        wandb.log({"train_loss": loss.cpu().item()}, step=it)
 
         if it % 100 == 0: # compute validation loss
+            wandb.log({"train_loss": loss.cpu().item()}, step=it)
 
             val_inputs, val_targets = load_batch(val_set, args.batch_size, args.context_length, device)
             
@@ -150,6 +150,7 @@ def train_model(dataset, val_set, model, iterations, save_dir, model_name, check
         # del opt
 
     print("Done training!")
+    save_checkpoint(model, opt, it, f'{save_dir}/{model_name}/final.pt')
     wandb.finish()
 
 
